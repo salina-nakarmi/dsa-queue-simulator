@@ -1,6 +1,6 @@
 CC = gcc					#Defines the compile (gcc)
 CFLAGS = -I./include -Wall	# compilation flags (-I includes the "include" directory, -wall enables warnings)
-LDFLAGS = -lSDL2			# links the SDL@ library
+LDFLAGS = -lSDL2 -lSDL2_ttf	# Links the SDL2 and SDL2_ttf libraries
 
 # Output directory 
 BUILD_DIR = build
@@ -41,3 +41,6 @@ clean:
 
 #Marks all and clean as special targets (not actual files).
 .PHONY: all clean
+
+run: $(SIMULATOR)
+	./$(SIMULATOR)

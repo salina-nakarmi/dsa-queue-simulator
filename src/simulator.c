@@ -18,6 +18,8 @@
 
 const char* VEHICLE_FILE = "../data/vehicles.data";
 
+
+//Stores the current and next traffic light states to control road signals--------------------
 typedef struct{
     int currentLight;
     int nextLight;
@@ -73,6 +75,8 @@ int main() {
         while (SDL_PollEvent(&event))
             if (event.type == SDL_QUIT) running = false;
     }
+    SDL_Delay(16); // Approx 60 FPS (1000ms / 60 ≈ 16ms)
+
     SDL_DestroyMutex(mutex);
     if (renderer) SDL_DestroyRenderer(renderer);
     if (window) SDL_DestroyWindow(window);
@@ -81,6 +85,8 @@ int main() {
     return 0;
 }
 
+
+//Creates an SDL window and renderer.------------------------------------------------
 bool initializeSDL(SDL_Window **window, SDL_Renderer **renderer) {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         SDL_Log("Failed to initialize SDL: %s", SDL_GetError());
@@ -117,6 +123,8 @@ bool initializeSDL(SDL_Window **window, SDL_Renderer **renderer) {
 
     return true;
 }
+
+
 
 
 void swap(int *a, int *b) {
@@ -157,6 +165,7 @@ void drawArrwow(SDL_Renderer* renderer, int x1, int y1, int x2, int y2, int x3, 
 }
 
 
+//draws a traffic light with red or green colors.-----------------
 void drawLightForB(SDL_Renderer* renderer, bool isRed){
     // draw light box
     SDL_SetRenderDrawColor(renderer, 150, 150, 150, 255);
@@ -171,6 +180,7 @@ void drawLightForB(SDL_Renderer* renderer, bool isRed){
 }
 
 
+//Draws a crossroad layout with labeled lanes.------------------------
 void drawRoadsAndLane(SDL_Renderer *renderer, TTF_Font *font) {
     SDL_SetRenderDrawColor(renderer, 211,211,211,255);
     // Vertical road
@@ -227,6 +237,7 @@ void displayText(SDL_Renderer *renderer, TTF_Font *font, char *text, int x, int 
 }
 
 
+//Updates traffic light states.-------------------------------------------------------
 void refreshLight(SDL_Renderer *renderer, SharedData* sharedData){
     if(sharedData->nextLight == sharedData->currentLight) return; // early return
 
@@ -243,9 +254,10 @@ void refreshLight(SDL_Renderer *renderer, SharedData* sharedData){
 }
 
 
+//Switches traffic lights every 5 seconds.---------------------
 void* chequeQueue(void* arg){
     SharedData* sharedData = (SharedData*)arg;
-    int i = 1;
+    //int i = 1; (not in use right now)
     while (1) {
         sharedData->nextLight = 0;
         sleep(5);
@@ -255,6 +267,7 @@ void* chequeQueue(void* arg){
 }
 
 // you may need to pass the queue on this function for sharing the data
+//Reads vehicle movement data from a file.----------------------
 void* readAndParseFile(void* arg) {
     while(1){ 
         FILE* file = fopen(VEHICLE_FILE, "r");

@@ -25,7 +25,8 @@ void generateVehicleNumber(char* buffer) {
 // Generate a random lane
 char generateLane() {
     char lanes[] = {'A', 'B', 'C', 'D'};
-    return lanes[rand() % 4];
+    sprintf(buffer, "%cL%d", roads[rand() % 4], 1); // Only incoming lanes (L1)
+    //for more formatted lane names like AL1
 }
 
 int main() {
@@ -57,17 +58,19 @@ int main() {
     srand(time(NULL));
 
     while (1) {
-        char vehicle[9];
+        char vehicle[15];
+        char lane[4];
         generateVehicleNumber(vehicle);
-        char lane = generateLane();
+        generateLane(lane);
 
+        //Format: vehicle_numver:lane
         snprintf(buffer, BUFFER_SIZE, "%s:%c", vehicle, lane);
-
         // Send message
         send(sock, buffer, strlen(buffer), 0);
         printf("Sent: %s\n", buffer);
 
-        sleep(1);
+        //random delay between 1-3 seconds
+        sleep(1+(rand() % 3));
     }
 
     close(sock);

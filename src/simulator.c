@@ -17,6 +17,30 @@
 #define LANE_WIDTH 50
 #define ARROW_SIZE 15
 
+TTF_Font* font =NULL;
+
+//Stores the current and next traffic light states to control road signals--------------------
+typedef struct{
+    int currentLight;
+    int nextLight;
+} SharedData;
+
+
+// Function declarations
+bool initializeSDL(SDL_Window **window, SDL_Renderer **renderer);
+void drawRoadsAndLane(SDL_Renderer *renderer, TTF_Font *font);
+void displayText(SDL_Renderer *renderer, TTF_Font *font, char *text, int x, int y);
+void drawLightForB(SDL_Renderer* renderer, bool isRed);
+void refreshLight(SDL_Renderer *renderer, SharedData* sharedData);
+void* chequeQueue(void* arg);
+void* readAndParseFile(void* arg);
+
+void updateTrafficLights(int isPriorityActive);
+void drawVehiclesInLane(SDL_Renderer* renderer, VehicleQueue* queue, const char* laneName);
+void getLanePosition(const char* laneName, int* x, int* y);
+void drawVehicle(SDL_Renderer* renderer, int x, int y);
+
+
 
 // Global queues for each lane
 VehicleQueue laneQueues[4];  // A, B, C, D lanes
@@ -71,7 +95,7 @@ void* networkReceiverThread(void* arg) {
         // Add to appropriate queue
         for (int i = 0; i < 4; i++) {
             if (strcmp(lane, LANE_NAMES[i]) == 0) {
-                enqueueVehicle(&laneQueues[i], vehicle);
+                enqueueVehicle(&laneQueues[i], &vehicle);
                 break;
             }
         }
@@ -82,71 +106,187 @@ void* networkReceiverThread(void* arg) {
     return NULL;
 }
 
+
 const char* VEHICLE_FILE = "../data/vehicles.data";
 
 
-//Stores the current and next traffic light states to control road signals--------------------
-typedef struct{
-    int currentLight;
-    int nextLight;
-} SharedData;
 
 
-// Function declarations
-bool initializeSDL(SDL_Window **window, SDL_Renderer **renderer);
-void drawRoadsAndLane(SDL_Renderer *renderer, TTF_Font *font);
-void displayText(SDL_Renderer *renderer, TTF_Font *font, char *text, int x, int y);
-void drawLightForB(SDL_Renderer* renderer, bool isRed);
-void refreshLight(SDL_Renderer *renderer, SharedData* sharedData);
-void* chequeQueue(void* arg);
-void* readAndParseFile(void* arg);
+
 
 
 void printMessageHelper(const char* message, int count) {
     for (int i = 0; i < count; i++) printf("%s\n", message);
 }
 
-int main() {
-    pthread_t tQueue, tReadFile;
-    SDL_Window* window = NULL;
-    SDL_Renderer* renderer = NULL;    
-    SDL_Event event;    
 
+//simulator update funcction
+void updateSimulation(SDL_Renderer* renderer) {
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_RenderClear(renderer);
+
+    // Draw roads and lanes
+    drawRoadsAndLane(renderer, font);
+
+    // Check priority conditions for AL2
+    int vehiclesInA = getQueueCount(&laneQueues[0]);
+    bool isPriorityActive = vehiclesInA > 10;
+
+    // Update traffic lights based on priority
+    updateTrafficLights(isPriorityActive);
+
+    // Draw vehicles in queues
+    for (int i = 0; i < 4; i++) {
+        drawVehiclesInLane(renderer, &laneQueues[i], LANE_NAMES[i]);
+    }
+}
+
+void drawVehiclesInLane(SDL_Renderer* renderer, VehicleQueue* queue, const char* laneName) {
+    int x, y;
+    getLanePosition(laneName, &x, &y);
+
+    pthread_mutex_lock(&queue->mutex);
+    int count = queue->count;  // or queue->count depending on your earlier fix
+    for (int i = 0; i < count; i++) {
+        //int index = (queue->front + i) % MAX_QUEUE_SIZE;
+        // Only declare vehicle if you're going to use it
+        // Vehicle vehicle = queue->vehicles[index];  // Remove if unused
+        drawVehicle(renderer, x, y + i * 30);
+    }
+    pthread_mutex_unlock(&queue->mutex);
+}
+
+void drawVehicle(SDL_Renderer* renderer, int x, int y) {
+    // Draw a simple rectangle representing a vehicle
+    SDL_Rect vehicle = {x, y, 40, 20}; // 40x20 pixel vehicle
+    SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255); // Blue vehicles
+    SDL_RenderFillRect(renderer, &vehicle);
+}
+
+
+ void updateTrafficLights(int isPriorityActive) {
+    static time_t lastUpdate = 0;
+    time_t currentTime = time(NULL);
+    
+    // Update lights every 5 seconds in normal conditions
+    if (currentTime - lastUpdate < 5 && !isPriorityActive) {
+        return;
+    }
+    
+    // Priority handling for AL2
+    if (isPriorityActive) {
+        // Keep AL2 green until queue reduces
+        for (int i = 0; i < 4; i++) {
+            if (strcmp(LANE_NAMES[i], "AL2") == 0) {
+                laneQueues[i].light_state = STATE_GREEN;
+            } else {
+                laneQueues[i].light_state = STATE_RED;
+            }
+        }
+    } else {
+        // Normal rotation of lights
+        static int currentLane = 0;
+        
+        // Reset all to red
+        for (int i = 0; i < 4; i++) {
+            laneQueues[i].light_state = STATE_RED;
+        }
+        
+        // Set current lane to green
+        laneQueues[currentLane].light_state = STATE_GREEN;
+        
+        // Move to next lane
+        currentLane = (currentLane + 1) % 4;
+    }
+    
+    lastUpdate = currentTime;
+}
+
+void calculateVehicleServing() {
+    // Calculate average number of waiting vehicles
+    int totalVehicles = 0;
+    int normalLanes = 0;
+    
+    for (int i = 0; i < 4; i++) {
+        if (laneQueues[i].priority == 0) {
+            totalVehicles += getQueueCount(&laneQueues[i]);
+            normalLanes++;
+        }
+    }
+    
+    // Calculate vehicles to serve based on formula from assignment
+    if (normalLanes > 0) {
+        return totalVehicles / normalLanes;
+    }
+    return 1; // Default to 1 if no normal lanes
+}
+
+
+//helper function
+void getLanePosition(const char* laneName, int* x, int* y) {
+    // Set starting positions for each lane
+    if (strcmp(laneName, "AL1") == 0) {
+        *x = WINDOW_WIDTH / 2;
+        *y = 50;
+    } else if (strcmp(laneName, "BL1") == 0) {
+        *x = WINDOW_WIDTH - 50;
+        *y = WINDOW_HEIGHT / 2;
+    } else if (strcmp(laneName, "CL1") == 0) {
+        *x = WINDOW_WIDTH / 2;
+        *y = WINDOW_HEIGHT - 50;
+    } else if (strcmp(laneName, "DL1") == 0) {
+        *x = 50;
+        *y = WINDOW_HEIGHT / 2;
+    }
+}
+
+int main() {
+    // Initialize queues
+    for (int i = 0; i < 4; i++) {
+        initVehicleQueue(&laneQueues[i]);
+    }
+
+    // Create network receiver thread
+    pthread_t networkThread;
+    if (pthread_create(&networkThread, NULL, networkReceiverThread, NULL) != 0) {
+        perror("Failed to create network thread");
+        return -1;
+    }
+
+    font = TTF_OpenFont(MAIN_FONT, 24);  // Add appropriate font size
+    if (!font) {
+        SDL_Log("Failed to load font: %s", TTF_GetError());
+        return false;
+    }   
+
+    // Initialize SDL and other components as before
+    SDL_Window* window = NULL;
+    SDL_Renderer* renderer = NULL;
     if (!initializeSDL(&window, &renderer)) {
         return -1;
     }
-    SDL_mutex* mutex = SDL_CreateMutex();
-    SharedData sharedData = { 0, 0 }; // 0 => all red
-    
-    TTF_Font* font = TTF_OpenFont(MAIN_FONT, 24);
-    if (!font) SDL_Log("Failed to load font: %s", TTF_GetError());
 
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderClear(renderer);
-    drawRoadsAndLane(renderer, font);
-    // drawLightForB(renderer, false);
-    SDL_RenderPresent(renderer);
-
-    // we need to create seprate long running thread for the queue processing and light
-    // pthread_create(&tLight, NULL, refreshLight, &sharedData);
-    pthread_create(&tQueue, NULL, chequeQueue, &sharedData);
-    pthread_create(&tReadFile, NULL, readAndParseFile, NULL);
-    // readAndParseFile();
-
-    // Continue the UI thread
+    // Main loop
     bool running = true;
     while (running) {
-        // update light
-        refreshLight(renderer, &sharedData);
-        while (SDL_PollEvent(&event))
-            if (event.type == SDL_QUIT) running = false;
-    }
-    SDL_Delay(16); // Approx 60 FPS (1000ms / 60 ≈ 16ms)
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                running = false;
+            }
+        }
 
-    SDL_DestroyMutex(mutex);
-    if (renderer) SDL_DestroyRenderer(renderer);
-    if (window) SDL_DestroyWindow(window);
-    // pthread_kil
+        // Update simulation state
+        updateSimulation(renderer);
+        
+        // Render frame
+        SDL_RenderPresent(renderer);
+        SDL_Delay(16); // ~60 FPS
+    }
+
+    // Cleanup
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
     SDL_Quit();
     return 0;
 }
@@ -358,3 +498,4 @@ void* readAndParseFile(void* arg) {
         sleep(2); // manage this time
     }
 }
+

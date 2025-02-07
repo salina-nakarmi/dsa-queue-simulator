@@ -6,6 +6,7 @@
 #define MAX_QUEUE_SIZE 100
 #define MAX_VEHICLE_LENGTH 15
 #define MAX_LANE_LENGTH 4
+#define MAX_VEHICLE_SIZE 20
 
 typedef struct {
     char vehicle_number[MAX_VEHICLE_SIZE];
@@ -16,7 +17,7 @@ typedef struct {
     Vehicle vehicles[MAX_QUEUE_SIZE];
     int front;
     int rear;
-    int size;
+    int count;
     pthread_mutex_t mutex;
     pthread_cond_t not_empty;
     pthread_cond_t not_full;
@@ -25,7 +26,7 @@ typedef struct {
 
 //queue operations
 void initVehicleQueue(VehicleQueue* queue);
-int enqueueVehicle(VehicleQueue* queue, Vehicle vehicle);
+int enqueueVehicle(VehicleQueue* queue, Vehicle* vehicle);
 int enqueueVehicle(VehicleQueue* queue, Vehicle* vehicle);
 int getQueueCount(VehicleQueue* queue);
 

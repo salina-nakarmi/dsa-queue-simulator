@@ -23,9 +23,9 @@ void generateVehicleNumber(char* buffer) {
 }       //sprintf is used to format the output and store it in buffer.-------------------------
 
 // Generate a random lane
-char generateLane() {
-    char lanes[] = {'A', 'B', 'C', 'D'};
-    sprintf(buffer, "%cL%d", roads[rand() % 4], 1); // Only incoming lanes (L1)
+void generateLane(char* buffer) {
+    static const char lanes[] = {'A', 'B', 'C', 'D'};
+    sprintf(buffer, "%cL%d", lanes[rand() % 4], 1); // Only incoming lanes (L1)
     //for more formatted lane names like AL1
 }
 
@@ -64,7 +64,7 @@ int main() {
         generateLane(lane);
 
         //Format: vehicle_numver:lane
-        snprintf(buffer, BUFFER_SIZE, "%s:%c", vehicle, lane);
+        snprintf(buffer, BUFFER_SIZE, "%s:%s", vehicle, lane);
         // Send message
         send(sock, buffer, strlen(buffer), 0);
         printf("Sent: %s\n", buffer);

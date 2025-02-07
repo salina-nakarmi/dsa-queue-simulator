@@ -10,7 +10,7 @@ void initVehicleQueue(VehicleQueue* queue) {
     pthread_cond_init(&queue->not_full, NULL);
 }
 
-int enqueueVehicle(VehicleQueue* queue, Vehicle vehicle) {
+int enqueueVehicle(VehicleQueue* queue, Vehicle* vehicle) {
     pthread_mutex_lock(&queue->mutex);
     
     if (queue->count >= MAX_QUEUE_SIZE) {

@@ -8,10 +8,13 @@ BUILD_DIR = build
 # Source files
 GENERATOR_SRC = src/traffic_generator.c
 SIMULATOR_SRC = src/simulator.c
+QUEUE_SRC = src/vehicle_queue.c
+
 
 # Object files(compiled files)
 GENERATOR_OBJ = $(BUILD_DIR)/traffic_generator.o
 SIMULATOR_OBJ = $(BUILD_DIR)/simulator.o
+QUEUE_OBJ = $(BUILD_DIR)/vehicle_queue.o
 
 # Executables
 GENERATOR = $(BUILD_DIR)/generator

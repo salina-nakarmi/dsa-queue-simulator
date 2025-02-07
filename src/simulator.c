@@ -1,10 +1,12 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <stdbool.h>
-#include <pthread.h>
 #include <unistd.h> 
 #include <stdio.h> 
 #include <string.h>
+#include <pthread.h>
+#include<arpa/inet.h>
+#include "queue.h"
 
 #define MAX_LINE_LENGTH 20
 #define MAIN_FONT "/usr/share/fonts/TTF/DejaVuSans.ttf"
@@ -15,6 +17,70 @@
 #define LANE_WIDTH 50
 #define ARROW_SIZE 15
 
+
+// Global queues for each lane
+VehicleQueue laneQueues[4];  // A, B, C, D lanes
+const char* LANE_NAMES[] = {"AL1", "BL1", "CL1", "DL1"};
+
+//Create a TCP Socket
+void* networkReceiverThread(void* arg) {
+    int server_fd, new_socket;
+    struct sockaddr_in address;
+    int addrlen = sizeof(address);
+    char buffer[100] = {0};
+
+    // Create socket
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("Socket failed");
+        return NULL;
+    }
+
+    //configure server address
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(5000);
+
+    // Bind and listen
+    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
+        perror("Bind failed");
+        return NULL;
+    }
+    if (listen(server_fd, 3) < 0) {
+        perror("Listen failed");
+        return NULL;
+    }
+
+    // Accept a client connection
+    if ((new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0) {
+        perror("Accept failed");
+        return NULL;
+    }
+
+    //reads incoming vehicle data
+    while (1) {
+        memset(buffer, 0, sizeof(buffer));//clears the buffer before reading
+        int bytes_read = read(new_socket, buffer, sizeof(buffer));//reads data into buffer
+        if (bytes_read <= 0) break; //if the client disconnets
+
+        // Parse vehicle data
+        Vehicle vehicle;
+        char lane[4];
+        sscanf(buffer, "%[^:]:%s", vehicle.vehicle_number, lane); // vehicle id, lane name
+        strcpy(vehicle.lane, lane); //copies the lane name into the vehicle struct
+
+        // Add to appropriate queue
+        for (int i = 0; i < 4; i++) {
+            if (strcmp(lane, LANE_NAMES[i]) == 0) {
+                enqueueVehicle(&laneQueues[i], vehicle);
+                break;
+            }
+        }
+    }
+
+    close(new_socket);
+    close(server_fd);
+    return NULL;
+}
 
 const char* VEHICLE_FILE = "../data/vehicles.data";
 

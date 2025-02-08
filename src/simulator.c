@@ -9,7 +9,7 @@
 #include "queue.h"
 
 #define MAX_LINE_LENGTH 20
-#define MAIN_FONT "/usr/share/fonts/TTF/DejaVuSans.ttf"
+#define MAIN_FONT "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 800
 #define SCALE 1
@@ -33,12 +33,14 @@ void displayText(SDL_Renderer *renderer, TTF_Font *font, char *text, int x, int 
 void drawLightForB(SDL_Renderer* renderer, bool isRed);
 void refreshLight(SDL_Renderer *renderer, SharedData* sharedData);
 void* chequeQueue(void* arg);
-void* readAndParseFile(void* arg);
+
 
 void updateTrafficLights(int isPriorityActive);
 void drawVehiclesInLane(SDL_Renderer* renderer, VehicleQueue* queue, const char* laneName);
+void drawVehicle(SDL_Renderer* renderer, int x, int y, SDL_Color color);
+void drawTrafficLight(SDL_Renderer* renderer, VehicleQueue* queue, int x, int y);
 void getLanePosition(const char* laneName, int* x, int* y);
-void drawVehicle(SDL_Renderer* renderer, int x, int y);
+int calculateVehicleServing();
 
 
 
@@ -95,7 +97,7 @@ void* networkReceiverThread(void* arg) {
         // Add to appropriate queue
         for (int i = 0; i < 4; i++) {
             if (strcmp(lane, LANE_NAMES[i]) == 0) {
-                enqueueVehicle(&laneQueues[i], &vehicle);
+                enqueueVehicle(&laneQueues[i], vehicle);
                 break;
             }
         }
@@ -105,14 +107,6 @@ void* networkReceiverThread(void* arg) {
     close(server_fd);
     return NULL;
 }
-
-
-const char* VEHICLE_FILE = "../data/vehicles.data";
-
-
-
-
-
 
 
 void printMessageHelper(const char* message, int count) {
@@ -146,21 +140,52 @@ void drawVehiclesInLane(SDL_Renderer* renderer, VehicleQueue* queue, const char*
     getLanePosition(laneName, &x, &y);
 
     pthread_mutex_lock(&queue->mutex);
-    int count = queue->count;  // or queue->count depending on your earlier fix
+    int count = queue->count;
     for (int i = 0; i < count; i++) {
-        //int index = (queue->front + i) % MAX_QUEUE_SIZE;
-        // Only declare vehicle if you're going to use it
-        // Vehicle vehicle = queue->vehicles[index];  // Remove if unused
-        drawVehicle(renderer, x, y + i * 30);
+        int index = (queue->front + i) % MAX_QUEUE_SIZE;
+        Vehicle vehicle = queue->vehicles[index];
+        
+        // Calculate position based on lane orientation
+        int vehicleX = x;
+        int vehicleY = y;
+        
+        if (strncmp(laneName, "A", 1) == 0 || strncmp(laneName, "C", 1) == 0) {
+            vehicleY += i * 30;  // Vertical spacing
+        } else {
+            vehicleX += i * 30;  // Horizontal spacing
+        }
+        
+        // Draw vehicle with different colors based on waiting time
+        int waitTime = time(NULL) - vehicle.arrival_time;
+        SDL_Color color = {0, 0, 255, 255}; // Default blue
+        
+        if (waitTime > 30) color = (SDL_Color){255, 0, 0, 255}; // Red for long wait
+        else if (waitTime > 15) color = (SDL_Color){255, 165, 0, 255}; // Orange for medium wait
+        
+        drawVehicle(renderer, vehicleX, vehicleY, color);
     }
     pthread_mutex_unlock(&queue->mutex);
 }
 
-void drawVehicle(SDL_Renderer* renderer, int x, int y) {
-    // Draw a simple rectangle representing a vehicle
-    SDL_Rect vehicle = {x, y, 40, 20}; // 40x20 pixel vehicle
-    SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255); // Blue vehicles
+void drawVehicle(SDL_Renderer* renderer, int x, int y, SDL_Color color) {
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    SDL_Rect vehicle = {x, y, 20, 40}; // Make vehicles visible and sized appropriately
     SDL_RenderFillRect(renderer, &vehicle);
+}
+
+void drawTrafficLight(SDL_Renderer* renderer, VehicleQueue* queue, int x, int y) {
+    SDL_Rect lightBox = {x, y, 30, 60};
+    SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
+    SDL_RenderFillRect(renderer, &lightBox);
+    
+    // Draw the current light state
+    SDL_Rect light = {x + 5, y + 5, 20, 20};
+    if (queue->light_state == STATE_RED) {
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+    } else {
+        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+    }
+    SDL_RenderFillRect(renderer, &light);
 }
 
 
@@ -202,7 +227,7 @@ void drawVehicle(SDL_Renderer* renderer, int x, int y) {
     lastUpdate = currentTime;
 }
 
-void calculateVehicleServing() {
+int calculateVehicleServing() {
     // Calculate average number of waiting vehicles
     int totalVehicles = 0;
     int normalLanes = 0;
@@ -253,18 +278,20 @@ int main() {
         return -1;
     }
 
-    font = TTF_OpenFont(MAIN_FONT, 24);  // Add appropriate font size
-    if (!font) {
-        SDL_Log("Failed to load font: %s", TTF_GetError());
-        return false;
-    }   
-
     // Initialize SDL and other components as before
     SDL_Window* window = NULL;
     SDL_Renderer* renderer = NULL;
     if (!initializeSDL(&window, &renderer)) {
         return -1;
     }
+
+
+    font = TTF_OpenFont(MAIN_FONT, 24);  // Add appropriate font size
+    if (!font) {
+        SDL_Log("Failed to load font: %s", TTF_GetError());
+        return false;
+    }   
+
 
     // Main loop
     bool running = true;
@@ -469,33 +496,6 @@ void* chequeQueue(void* arg){
         sleep(5);
         sharedData->nextLight = 2;
         sleep(5);
-    }
-}
-
-// you may need to pass the queue on this function for sharing the data
-//Reads vehicle movement data from a file.----------------------
-void* readAndParseFile(void* arg) {
-    while(1){ 
-        FILE* file = fopen(VEHICLE_FILE, "r");
-        if (!file) {
-            perror("Error opening file");
-            continue;
-        }
-
-        char line[MAX_LINE_LENGTH];
-        while (fgets(line, sizeof(line), file)) {
-            // Remove newline if present
-            line[strcspn(line, "\n")] = 0;
-
-            // Split using ':'
-            char* vehicleNumber = strtok(line, ":");
-            char* road = strtok(NULL, ":"); // read next item resulted from split
-
-            if (vehicleNumber && road)  printf("Vehicle: %s, Raod: %s\n", vehicleNumber, road);
-            else printf("Invalid format: %s\n", line);
-        }
-        fclose(file);
-        sleep(2); // manage this time
     }
 }
 

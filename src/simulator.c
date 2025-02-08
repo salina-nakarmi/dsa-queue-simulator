@@ -137,33 +137,22 @@ void updateSimulation(SDL_Renderer* renderer) {
 
 void drawVehiclesInLane(SDL_Renderer* renderer, VehicleQueue* queue, const char* laneName) {
     int x, y;
-    getLanePosition(laneName, &x, &y);
-
-    pthread_mutex_lock(&queue->mutex);
-    int count = queue->count;
-    for (int i = 0; i < count; i++) {
-        int index = (queue->front + i) % MAX_QUEUE_SIZE;
-        Vehicle vehicle = queue->vehicles[index];
-        
-        // Calculate position based on lane orientation
-        int vehicleX = x;
-        int vehicleY = y;
-        
-        if (strncmp(laneName, "A", 1) == 0 || strncmp(laneName, "C", 1) == 0) {
-            vehicleY += i * 30;  // Vertical spacing
-        } else {
-            vehicleX += i * 30;  // Horizontal spacing
-        }
-        
-        // Draw vehicle with different colors based on waiting time
-        int waitTime = time(NULL) - vehicle.arrival_time;
-        SDL_Color color = {0, 0, 255, 255}; // Default blue
-        
-        if (waitTime > 30) color = (SDL_Color){255, 0, 0, 255}; // Red for long wait
-        else if (waitTime > 15) color = (SDL_Color){255, 165, 0, 255}; // Orange for medium wait
-        
-        drawVehicle(renderer, vehicleX, vehicleY, color);
+    void getLanePosition(const char* laneName, int* x, int* y) {
+    // Set starting positions for each lane based on junction layout
+    if (strcmp(laneName, "AL1") == 0) {
+        *x = WINDOW_WIDTH/2 - LANE_WIDTH/2;  // Center of leftmost lane
+        *y = WINDOW_HEIGHT/4;  // Start from top quarter
+    } else if (strcmp(laneName, "BL1") == 0) {
+        *x = WINDOW_WIDTH/4;  // Start from left quarter
+        *y = WINDOW_HEIGHT/2 - LANE_WIDTH/2;  // Center of top lane
+    } else if (strcmp(laneName, "CL1") == 0) {
+        *x = WINDOW_WIDTH/2 + LANE_WIDTH/2;  // Center of rightmost lane
+        *y = WINDOW_HEIGHT*3/4;  // Start from bottom quarter
+    } else if (strcmp(laneName, "DL1") == 0) {
+        *x = WINDOW_WIDTH*3/4;  // Start from right quarter
+        *y = WINDOW_HEIGHT/2 + LANE_WIDTH/2;  // Center of bottom lane
     }
+}
     pthread_mutex_unlock(&queue->mutex);
 }
 

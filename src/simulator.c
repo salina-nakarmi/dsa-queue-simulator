@@ -37,7 +37,8 @@ void* chequeQueue(void* arg);
 
 void updateTrafficLights(int isPriorityActive);
 void drawVehiclesInLane(SDL_Renderer* renderer, VehicleQueue* queue, const char* laneName);
-void drawVehicle(SDL_Renderer* renderer, int x, int y, SDL_Color color);
+// Update this line in your function declarations section
+void drawVehicle(SDL_Renderer* renderer, int x, int y, SDL_Color color, const char* lane);
 void drawTrafficLight(SDL_Renderer* renderer, VehicleQueue* queue, int x, int y);
 void getLanePosition(const char* laneName, int* x, int* y);
 int calculateVehicleServing();
@@ -119,15 +120,15 @@ void updateSimulation(SDL_Renderer* renderer) {
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     SDL_RenderClear(renderer);
 
-    // Draw roads and lanes
+       // Draw roads and lanes
     drawRoadsAndLane(renderer, font);
 
-    // Check priority conditions for AL2
-    int vehiclesInA = getQueueCount(&laneQueues[0]);
-    bool isPriorityActive = vehiclesInA > 10;
-
-    // Update traffic lights based on priority
-    updateTrafficLights(isPriorityActive);
+    // Draw traffic lights for each direction
+    for (int i = 0; i < 4; i++) {
+        int x = 0, y = 0;
+        getLanePosition(LANE_NAMES[i], &x, &y);
+        drawTrafficLight(renderer, &laneQueues[i], x - 40, y);  // Offset by 40 pixels
+    }
 
     // Draw vehicles in queues
     for (int i = 0; i < 4; i++) {
@@ -137,28 +138,53 @@ void updateSimulation(SDL_Renderer* renderer) {
 
 void drawVehiclesInLane(SDL_Renderer* renderer, VehicleQueue* queue, const char* laneName) {
     int x, y;
-    void getLanePosition(const char* laneName, int* x, int* y) {
-    // Set starting positions for each lane based on junction layout
-    if (strcmp(laneName, "AL1") == 0) {
-        *x = WINDOW_WIDTH/2 - LANE_WIDTH/2;  // Center of leftmost lane
-        *y = WINDOW_HEIGHT/4;  // Start from top quarter
-    } else if (strcmp(laneName, "BL1") == 0) {
-        *x = WINDOW_WIDTH/4;  // Start from left quarter
-        *y = WINDOW_HEIGHT/2 - LANE_WIDTH/2;  // Center of top lane
-    } else if (strcmp(laneName, "CL1") == 0) {
-        *x = WINDOW_WIDTH/2 + LANE_WIDTH/2;  // Center of rightmost lane
-        *y = WINDOW_HEIGHT*3/4;  // Start from bottom quarter
-    } else if (strcmp(laneName, "DL1") == 0) {
-        *x = WINDOW_WIDTH*3/4;  // Start from right quarter
-        *y = WINDOW_HEIGHT/2 + LANE_WIDTH/2;  // Center of bottom lane
+    getLanePosition(laneName, &x, &y);
+
+    pthread_mutex_lock(&queue->mutex);
+    int count = queue->count;
+    for (int i = 0; i < count; i++) {
+        int index = (queue->front + i) % MAX_QUEUE_SIZE;
+        Vehicle vehicle = queue->vehicles[index];
+        
+        // Calculate position based on lane orientation
+        int vehicleX = x;
+        int vehicleY = y;
+        
+        // Adjust spacing based on lane orientation
+        if (strncmp(laneName, "A", 1) == 0) {
+            vehicleY += i * 50;  // Move down
+        } else if (strncmp(laneName, "C", 1) == 0) {
+            vehicleY -= i * 50;  // Move up
+        } else if (strncmp(laneName, "B", 1) == 0) {
+            vehicleX -= i * 50;  // Move left
+        } else {  // D lane
+            vehicleX += i * 50;  // Move right
+        }
+        
+        int waitTime = time(NULL) - vehicle.arrival_time;
+        SDL_Color color = {0, 0, 255, 255}; // Default blue
+        
+        if (waitTime > 30) color = (SDL_Color){255, 0, 0, 255}; // Red for long wait
+        else if (waitTime > 15) color = (SDL_Color){255, 165, 0, 255}; // Orange for medium wait
+        
+        drawVehicle(renderer, vehicleX, vehicleY, color, laneName);
     }
-}
     pthread_mutex_unlock(&queue->mutex);
 }
 
-void drawVehicle(SDL_Renderer* renderer, int x, int y, SDL_Color color) {
+void drawVehicle(SDL_Renderer* renderer, int x, int y, SDL_Color color, const char* lane) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    SDL_Rect vehicle = {x, y, 20, 40}; // Make vehicles visible and sized appropriately
+    SDL_Rect vehicle;
+    
+    // Adjust vehicle orientation based on lane
+    if (strncmp(lane, "A", 1) == 0 || strncmp(lane, "C", 1) == 0) {
+        // Vertical orientation for A and C lanes
+        vehicle = (SDL_Rect){x - 10, y, 20, 40};
+    } else {
+        // Horizontal orientation for B and D lanes
+        vehicle = (SDL_Rect){x, y - 10, 40, 20};
+    }
+    
     SDL_RenderFillRect(renderer, &vehicle);
 }
 
@@ -238,19 +264,19 @@ int calculateVehicleServing() {
 
 //helper function
 void getLanePosition(const char* laneName, int* x, int* y) {
-    // Set starting positions for each lane
+    // Set starting positions for each lane based on junction layout
     if (strcmp(laneName, "AL1") == 0) {
-        *x = WINDOW_WIDTH / 2;
-        *y = 50;
+        *x = WINDOW_WIDTH/2 - LANE_WIDTH/2;  // Center of leftmost lane
+        *y = WINDOW_HEIGHT/4;  // Start from top quarter
     } else if (strcmp(laneName, "BL1") == 0) {
-        *x = WINDOW_WIDTH - 50;
-        *y = WINDOW_HEIGHT / 2;
+        *x = WINDOW_WIDTH/4;  // Start from left quarter
+        *y = WINDOW_HEIGHT/2 - LANE_WIDTH/2;  // Center of top lane
     } else if (strcmp(laneName, "CL1") == 0) {
-        *x = WINDOW_WIDTH / 2;
-        *y = WINDOW_HEIGHT - 50;
+        *x = WINDOW_WIDTH/2 + LANE_WIDTH/2;  // Center of rightmost lane
+        *y = WINDOW_HEIGHT*3/4;  // Start from bottom quarter
     } else if (strcmp(laneName, "DL1") == 0) {
-        *x = 50;
-        *y = WINDOW_HEIGHT / 2;
+        *x = WINDOW_WIDTH*3/4;  // Start from right quarter
+        *y = WINDOW_HEIGHT/2 + LANE_WIDTH/2;  // Center of bottom lane
     }
 }
 

@@ -19,13 +19,15 @@ void generateVehicleNumber(char* buffer) {
         'A' + rand() % 26,           // Random letter
         'A' + rand() % 26,           // Random letter
         rand() % 10000               // Random number
+            // District code            // Random number
     );
 }       //sprintf is used to format the output and store it in buffer.-------------------------
 
 // Generate a random lane
 void generateLane(char* buffer) {
-    static const char lanes[] = {"AL1", "BL1", "CL1", "DL1", "AL2"};
-    strcpy(buffer, lanes[rand() % 5]); // Only incoming lanes (L1)
+    static const char* lanes[] = {"AL1", "BL1", "CL1", "DL1", "AL2"};
+    const char* selected_lane = lanes[rand() % 5];
+    strcpy(buffer, selected_lane); // Only incoming lanes (L1)
     
 }
 

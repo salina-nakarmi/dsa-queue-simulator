@@ -2,6 +2,8 @@
 #define QUEUE_H
 
 #include <pthread.h>
+#include <time.h>
+
 
 #define MAX_QUEUE_SIZE 100
 #define MAX_VEHICLE_LENGTH 15
@@ -14,7 +16,7 @@
 typedef struct {
     char vehicle_number[MAX_VEHICLE_SIZE];
     char lane[MAX_LANE_LENGTH];
-    int arrival_time;
+    time_t arrival_time;
 } Vehicle;
 
 typedef struct {
@@ -33,7 +35,7 @@ typedef struct {
 //queue operations
 void initVehicleQueue(VehicleQueue* queue);
 int enqueueVehicle(VehicleQueue* queue, Vehicle vehicle);
-int enqueueVehicle(VehicleQueue* queue, Vehicle* vehicle);
+int dequeueVehicle(VehicleQueue* queue, Vehicle* vehicle);
 int getQueueCount(VehicleQueue* queue);
 void updateQueuePriority(VehicleQueue* queue);
 

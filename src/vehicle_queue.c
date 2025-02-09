@@ -1,4 +1,4 @@
-#include "queue.h"
+#include "../include/queue.h"
 #include <string.h>
 #include <time.h>
 
@@ -13,7 +13,7 @@ void initVehicleQueue(VehicleQueue* queue) {
     pthread_cond_init(&queue->not_full, NULL);
 }
 
-int enqueueVehicle(VehicleQueue* queue, Vehicle* vehicle) {
+int enqueueVehicle(VehicleQueue* queue, Vehicle vehicle) {
     pthread_mutex_lock(&queue->mutex);
     
     if (queue->count >= MAX_QUEUE_SIZE) {
@@ -22,6 +22,7 @@ int enqueueVehicle(VehicleQueue* queue, Vehicle* vehicle) {
     }
     
     queue->rear = (queue->rear + 1) % MAX_QUEUE_SIZE;
+    vehicle.arrival_time = time(NULL);
     queue->vehicles[queue->rear] = vehicle;
     queue->count++;
 

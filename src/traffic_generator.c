@@ -54,7 +54,7 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    printf("Connected to server(simulator)...\n");
+    printf("Connected to simulator...\n");
     srand(time(NULL));
 
     while (1) {
@@ -63,7 +63,7 @@ int main() {
         generateVehicleNumber(vehicle);
         generateLane(lane);
 
-        //Format: vehicle_numver:lane
+        //Format: vehicle_number:lane
         snprintf(buffer, BUFFER_SIZE, "%s:%s", vehicle, lane);
         // Send message
         ssize_t sent_bytes = send(sock, buffer, strlen(buffer), 0);
@@ -71,7 +71,7 @@ int main() {
         perror("Failed to send");
         break;
     }
-    printf("Sent vehicle: %s to lane: %s (bytes: %zd)\n", vehicle, lane, sent_bytes);
+    printf("Sent vehicle: %s to lane: %s\n", vehicle, lane);
 
         //random delay between 1-3 seconds
         sleep(1+(rand() % 3));

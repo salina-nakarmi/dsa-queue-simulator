@@ -6,7 +6,7 @@
 #include <time.h>
 
 //#define SERVER_IP "0.0.0.0" // for all network available
-#define SERVER_IP "127.0.0.1" //local host
+#define SERVER_IP "127.0.0.0" 
 #define PORT 8000
 #define BUFFER_SIZE 100
 

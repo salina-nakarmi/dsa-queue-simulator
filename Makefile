@@ -1,49 +1,37 @@
-CC = gcc					#Defines the compile (gcc)
-CFLAGS = -I./include -Wall	# compilation flags (-I includes the "include" directory, -wall enables warnings)
-LDFLAGS = -lSDL2 -lSDL2_ttf	# Links the SDL2 and SDL2_ttf libraries
+CC = gcc
+CFLAGS = -I/usr/include/SDL2 -I./include -Wall -Wextra
+LDFLAGS = -lSDL2 -lSDL2_ttf -pthread
 
-# Output directory 
 BUILD_DIR = build
+SRC_DIR = src
 
 # Source files
-GENERATOR_SRC = src/traffic_generator.c
-SIMULATOR_SRC = src/simulator.c
-QUEUE_SRC = src/vehicle_queue.c
+SIMULATOR_SRCS = $(SRC_DIR)/simulator.c $(SRC_DIR)/vehicle_queue.c
+GENERATOR_SRCS = $(SRC_DIR)/traffic_generator.c
 
+# Object files
+SIMULATOR_OBJS = $(SIMULATOR_SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+GENERATOR_OBJS = $(GENERATOR_SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
-# Object files(compiled files)
-GENERATOR_OBJ = $(BUILD_DIR)/traffic_generator.o
-SIMULATOR_OBJ = $(BUILD_DIR)/simulator.o
-QUEUE_OBJ = $(BUILD_DIR)/vehicle_queue.o
+.PHONY: all clean run
 
-# Executables
-GENERATOR = $(BUILD_DIR)/generator
-SIMULATOR = $(BUILD_DIR)/simulator
+all: $(BUILD_DIR) $(BUILD_DIR)/simulator $(BUILD_DIR)/generator
 
-#all targets default build(when we run make it ensure build dir exits)
-all: $(BUILD_DIR) $(GENERATOR) $(SIMULATOR)
-
-#creating 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-#rules for creating executables
-$(GENERATOR): $(GENERATOR_OBJ)
-	$(CC) $(GENERATOR_OBJ) -o $@ $(LDFLAGS)
+$(BUILD_DIR)/simulator: $(SIMULATOR_OBJS)
+	$(CC) $^ -o $@ $(LDFLAGS)
 
-$(SIMULATOR): $(SIMULATOR_OBJ)
-	$(CC) $(SIMULATOR_OBJ) -o $@ $(LDFLAGS)
+$(BUILD_DIR)/generator: $(GENERATOR_OBJS)
+	$(CC) $^ -o $@ $(LDFLAGS)
 
-#compiling .c to .o
-$(BUILD_DIR)/%.o: src/%.c
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-#make clean removes compiled files
 clean:
 	rm -rf $(BUILD_DIR)
 
-#Marks all and clean as special targets (not actual files).
-.PHONY: all clean
-
-run: $(SIMULATOR)
-	./$(SIMULATOR)
+# Run both simulator and generator
+run: all
+	./$(BUILD_DIR)/simulator & sleep 2 && ./$(BUILD_DIR)/generator

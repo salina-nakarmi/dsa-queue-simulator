@@ -1,12 +1,19 @@
-<h1>Traffic Junction Simulator</h1>
-<p>A traffic junction simulation system implementing queue data structure for traffic management.</p>
+# Traffic Junction Simulator
 
-<h2>Project Structure</h2>
-<pre>
-dsa-queue-simulator/
-├── src/           # Source files
-├── include/       # Header files
-├── assets/        # SDL textures and images
-├── build/         # Compiled binaries
-└── data/          # Data files
-</pre>
+A real-time traffic junction simulator using SDL2 for visualization and implementing queue data structures for traffic management.
+
+## Features
+
+- Real-time visualization of a 4-way junction
+- Thread-safe queue implementation
+- Priority lane handling
+- Random vehicle generation
+- Network communication between generator and simulator
+- Visual traffic light system
+
+## Prerequisites
+
+- SDL2 (`libsdl2-dev`)
+- SDL2_ttf (`libsdl2-ttf-dev`)
+- GCC compiler
+- Make build system

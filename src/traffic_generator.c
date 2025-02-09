@@ -7,7 +7,7 @@
 
 //#define SERVER_IP "0.0.0.0" // for all network available
 #define SERVER_IP "127.0.0.1" //local host
-#define PORT 5000
+#define PORT 8000
 #define BUFFER_SIZE 100
 
 // Generate a random vehicle number
@@ -24,9 +24,9 @@ void generateVehicleNumber(char* buffer) {
 
 // Generate a random lane
 void generateLane(char* buffer) {
-    static const char lanes[] = {'A', 'B', 'C', 'D'};
-    sprintf(buffer, "%cL%d", lanes[rand() % 4], 1); // Only incoming lanes (L1)
-    //for more formatted lane names like AL1
+    static const char lanes[] = {"AL1", "BL1", "CL1", "DL1", "AL2"};
+    strcpy(buffer, lanes[rand() % 5]); // Only incoming lanes (L1)
+    
 }
 
 int main() {
@@ -66,8 +66,12 @@ int main() {
         //Format: vehicle_numver:lane
         snprintf(buffer, BUFFER_SIZE, "%s:%s", vehicle, lane);
         // Send message
-        send(sock, buffer, strlen(buffer), 0);
-        printf("Sent: %s\n", buffer);
+        ssize_t sent_bytes = send(sock, buffer, strlen(buffer), 0);
+    if (sent_bytes < 0) {
+        perror("Failed to send");
+        break;
+    }
+    printf("Sent vehicle: %s to lane: %s (bytes: %zd)\n", vehicle, lane, sent_bytes);
 
         //random delay between 1-3 seconds
         sleep(1+(rand() % 3));

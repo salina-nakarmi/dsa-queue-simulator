@@ -209,29 +209,58 @@ void getLanePosition(const char* lane, int* x, int* y, int vehicleIndex) {
 void updateTrafficLights(void) {
     static time_t lastUpdate = 0;
     static int currentGreen = 0;
+    static bool priorityActive = false;  // Tracks if priority mode is active
     time_t now = time(NULL);
 
     if (now - lastUpdate >= 5) { // Update every 5 seconds
-
-               // Priority mode check
-        if (laneQueues[4].count > 10) { // AL2 priority
+        if (laneQueues[4].count > 10) {
+            // Activate priority mode for AL2
+            priorityActive = true;
+        } 
+        
+        if (priorityActive) {
+            // AL2 (laneQueues[4]) gets green until count drops below 5
             for (int i = 0; i < 5; i++) {
-                laneQueues[i].light_state = (i == 4 || i == 0) ? STATE_GREEN : STATE_RED;}
-                } 
-        else {
-            // Normal rotation mode
-            static int currentGreen = 0;
-            for (int i = 0; i < 4; i++) {
-                laneQueues[i].light_state = (i == currentGreen) ? STATE_GREEN : STATE_RED;
+                laneQueues[i].light_state = (i == 4 || i == 0) ? STATE_GREEN : STATE_RED;
             }
-            laneQueues[4].light_state = laneQueues[0].light_state;  // AL2 follows AL1
-            currentGreen = (currentGreen + 1) % 4;
+
+            // If AL2 drops below 5, return to normal condition
+            if (laneQueues[4].count < 5) {
+                priorityActive = false;
+            }
+
+        } else {
+            // Normal Rotation (Fair Scheduling)
+            int totalVehicles = 0;
+            int numLanes = 4; // Exclude AL2 from fair rotation
+            for (int i = 0; i < numLanes; i++) {
+                totalVehicles += laneQueues[i].count;
+            }
+
+            // Compute average vehicles per lane
+            int averageVehicles = (numLanes > 0) ? (totalVehicles / numLanes) : 1;
+            int vehiclesToServe = (averageVehicles > 0) ? averageVehicles : 1;
+
+            // Rotate through normal lanes fairly
+            for (int i = 0; i < numLanes; i++) {
+                if (laneQueues[i].count >= vehiclesToServe) {
+                    laneQueues[i].light_state = STATE_GREEN;
+                } else {
+                    laneQueues[i].light_state = STATE_RED;
+                }
+            }
+
+            // AL2 follows AL1 in normal mode
+            laneQueues[4].light_state = laneQueues[0].light_state;
+
+            // Move to the next lane in a round-robin fashion
+            currentGreen = (currentGreen + 1) % numLanes;
         }
+
         lastUpdate = now;
-                printf("Current green light: Lane %s\n", LANE_NAMES[currentGreen]);
+        printf("Current green light: Lane %s\n", LANE_NAMES[currentGreen]);
     }
 }
-
 
 void processVehicles(void) {
     for (int i = 0; i < 5; i++) {

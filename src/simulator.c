@@ -208,18 +208,17 @@ void getLanePosition(const char* lane, int* x, int* y, int vehicleIndex) {
 
 void updateTrafficLights(void) {
     static time_t lastUpdate = 0;
+    static int currentGreen = 0;
     time_t now = time(NULL);
 
     if (now - lastUpdate >= 5) { // Update every 5 seconds
-        // Check priority lane (AL2)
-        if (laneQueues[4].count > 10) {
-            // Priority mode: AL2 gets green, others red
-            for (int i = 0; i < 4; i++) {
-                laneQueues[i].light_state = (i == 0) ? STATE_GREEN : STATE_RED;
-            }
-            laneQueues[4].light_state = STATE_GREEN;  // AL2 always follows AL1 in priority mode
-        
-        } else {
+
+               // Priority mode check
+        if (laneQueues[4].count > 10) { // AL2 priority
+            for (int i = 0; i < 5; i++) {
+                laneQueues[i].light_state = (i == 4 || i == 0) ? STATE_GREEN : STATE_RED;}
+                } 
+        else {
             // Normal rotation mode
             static int currentGreen = 0;
             for (int i = 0; i < 4; i++) {
@@ -229,8 +228,10 @@ void updateTrafficLights(void) {
             currentGreen = (currentGreen + 1) % 4;
         }
         lastUpdate = now;
+                printf("Current green light: Lane %s\n", LANE_NAMES[currentGreen]);
     }
 }
+
 
 void processVehicles(void) {
     for (int i = 0; i < 5; i++) {

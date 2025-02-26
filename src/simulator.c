@@ -40,6 +40,10 @@ void processVehicles(void);
 void* networkThread(void* arg);
 void updateAndRender(void);
 void cleanup(void);
+// Function prototype
+char generateLane();
+
+
 
 bool initSDL(void) {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -92,6 +96,75 @@ bool initSDL(void) {
     return true;
 }
 
+// Define the lane relationships
+typedef struct {
+    const char* source_lane;  // Lane that generates vehicles (A3, B3, etc.)
+    const char* target_lane;  // Lane that receives vehicles (AL1, BL1, etc.)
+} LaneMapping;
+
+// Mappings between generating lanes and receiving lanes
+const LaneMapping LANE_MAPPINGS[] = {
+    {"A3", "BL1"},  // A3 generates vehicles for B1
+    {"B3", "CL1"},  // B3 generates vehicles for C1
+    {"C3", "DL1"},  // C3 generates vehicles for D1
+    {"D3", "AL1"}   // D3 generates vehicles for A1
+};
+
+// Function definition
+char generateLane() {
+    char lanes[] = {'A', 'B', 'C', 'D'};
+    return lanes[rand() % 4];
+}
+
+
+
+void drawSourceLanes(void) {
+    // Draw the source lanes (A3, B3, C3, D3) with lighter gray to distinguish them
+    SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
+    
+    // A3 - Third lane from the top
+    SDL_Rect a3Lane = {
+        WINDOW_WIDTH/2 + LANE_WIDTH, 
+        0, 
+        LANE_WIDTH, 
+        WINDOW_HEIGHT/2 - ROAD_WIDTH/2
+    };
+    SDL_RenderFillRect(renderer, &a3Lane);
+    
+    // B3 - Third lane from the right
+    SDL_Rect b3Lane = {
+        WINDOW_WIDTH/2 + ROAD_WIDTH/2,
+        WINDOW_HEIGHT/2 + LANE_WIDTH,
+        WINDOW_WIDTH/2 - ROAD_WIDTH/2,
+        LANE_WIDTH
+    };
+    SDL_RenderFillRect(renderer, &b3Lane);
+    
+    // C3 - Third lane from the bottom
+    SDL_Rect c3Lane = {
+        WINDOW_WIDTH/2 - LANE_WIDTH*2,
+        WINDOW_HEIGHT/2 + ROAD_WIDTH/2,
+        LANE_WIDTH,
+        WINDOW_HEIGHT/2 - ROAD_WIDTH/2
+    };
+    SDL_RenderFillRect(renderer, &c3Lane);
+    
+    // D3 - Third lane from the left
+    SDL_Rect d3Lane = {
+        0,
+        WINDOW_HEIGHT/2 - LANE_WIDTH*2,
+        WINDOW_WIDTH/2 - ROAD_WIDTH/2,
+        LANE_WIDTH
+    };
+    SDL_RenderFillRect(renderer, &d3Lane);
+    
+    // Draw lane labels
+    drawText("A3", WINDOW_WIDTH/2 + LANE_WIDTH + 10, 20);
+    drawText("B3", WINDOW_WIDTH - 40, WINDOW_HEIGHT/2 + LANE_WIDTH + 10);
+    drawText("C3", WINDOW_WIDTH/2 - LANE_WIDTH*2 - 30, WINDOW_HEIGHT - 40);
+    drawText("D3", 20, WINDOW_HEIGHT/2 - LANE_WIDTH*2 - 10);
+}
+
 void drawText(const char* text, int x, int y) {
     SDL_Color textColor = {0, 0, 0, 255};
     SDL_Surface* surface = TTF_RenderText_Solid(font, text, textColor);
@@ -118,6 +191,9 @@ void drawRoads(void) {
     SDL_RenderFillRect(renderer, &verticalRoad);
     SDL_RenderFillRect(renderer, &horizontalRoad);
 
+    // Draw source lanes (A3, B3, C3, D3)
+    drawSourceLanes();
+
     // Draw lane markings
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     for (int i = 1; i < 3; i++) {
@@ -132,18 +208,27 @@ void drawRoads(void) {
             WINDOW_WIDTH, WINDOW_HEIGHT/2 - ROAD_WIDTH/2 + i*LANE_WIDTH);
     }
 
-    // Draw lane labels
+    
+    
+        // Draw lane labels
     drawText("A", WINDOW_WIDTH/2 - 10, 20);
     drawText("B", WINDOW_WIDTH - 40, WINDOW_HEIGHT/2 - 10);
     drawText("C", WINDOW_WIDTH/2 - 10, WINDOW_HEIGHT - 40);
     drawText("D", 20, WINDOW_HEIGHT/2 - 10);
+    
+    // Add additional lane labels for clarity
+    drawText("A1", WINDOW_WIDTH/2 - LANE_WIDTH/2 - 30, 20);
+    drawText("B1", WINDOW_WIDTH - 40, WINDOW_HEIGHT/2 - LANE_WIDTH/2 - 30);
+    drawText("C1", WINDOW_WIDTH/2 + LANE_WIDTH/2 + 10, WINDOW_HEIGHT - 40);
+    drawText("D1", 20, WINDOW_HEIGHT/2 + LANE_WIDTH/2 + 10);
 }
 
 void drawVehicle(int x, int y, SDL_Color color, const char* lane) {
     SDL_Rect vehicle;
+    
     // Adjust vehicle size and orientation based on lane
     if (strncmp(lane, "A", 1) == 0 || strncmp(lane, "C", 1) == 0) {
-           // Vertical vehicles (going up or down)
+        // Vertical vehicles (going north or south)
         vehicle = (SDL_Rect){
             x - VEHICLE_WIDTH/2,
             y - VEHICLE_HEIGHT/2,
@@ -151,7 +236,7 @@ void drawVehicle(int x, int y, SDL_Color color, const char* lane) {
             VEHICLE_HEIGHT
         };
     } else {
-        // Horizontal vehicles (going left or right)
+        // Horizontal vehicles (going east or west)
         vehicle = (SDL_Rect){
             x - VEHICLE_HEIGHT/2,
             y - VEHICLE_WIDTH/2,
@@ -163,7 +248,7 @@ void drawVehicle(int x, int y, SDL_Color color, const char* lane) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
     SDL_RenderFillRect(renderer, &vehicle);
 
-        // Draw vehicle outline
+    // Draw vehicle outline
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderDrawRect(renderer, &vehicle);
 }
@@ -184,83 +269,135 @@ void drawTrafficLight(int x, int y, int state) {
 }
 
 void getLanePosition(const char* lane, int* x, int* y, int vehicleIndex) {
-    const int spacing = 30; // Reduced spacing between vehicles
-    const int margin = 20;  // Margin from the road edge
+    const int spacing = 30; // Space between vehicles
+    const int junctionMargin = 100; // Keep vehicles this far from the junction center
+    const int centerX = WINDOW_WIDTH/2; 
+    const int centerY = WINDOW_HEIGHT/2;
+    
+     // Center of each lane (not just offset)
+    const int aLaneCenter = centerX - ROAD_WIDTH/2 + LANE_WIDTH/2; // AL1 center
+    const int bLaneCenter = centerY - ROAD_WIDTH/2 + LANE_WIDTH/2; // BL1 center
+    const int cLaneCenter = centerX + ROAD_WIDTH/2 - LANE_WIDTH/2; // CL1 center
+    const int dLaneCenter = centerY + ROAD_WIDTH/2 - LANE_WIDTH/2; // DL1 center
+    const int a2LaneCenter = centerX + LANE_WIDTH/2; // AL2 center
 
     if (strcmp(lane, "AL1") == 0) {
-        *x = WINDOW_WIDTH/2 - LANE_WIDTH + margin;
-        *y = margin + vehicleIndex * spacing;
+        // Lane A1 approaches from top (southbound)
+        *x = aLaneCenter; // Center of Lane A1
+        *y = junctionMargin - vehicleIndex * spacing;
     } else if (strcmp(lane, "AL2") == 0) {
-        *x = WINDOW_WIDTH/2 - margin;
-        *y = margin + vehicleIndex * spacing;
+        // Lane A2 approaches from top (southbound)
+        *x = a2LaneCenter; // Center of Lane A2
+        *y = junctionMargin - vehicleIndex * spacing;
     } else if (strcmp(lane, "BL1") == 0) {
-        *x = WINDOW_WIDTH - margin - vehicleIndex * spacing;
-        *y = WINDOW_HEIGHT/2 - LANE_WIDTH + margin;
+        // Lane B1 approaches from right (westbound)
+        *x = WINDOW_WIDTH - junctionMargin + vehicleIndex * spacing;
+        *y = bLaneCenter; // Center of Lane B1
     } else if (strcmp(lane, "CL1") == 0) {
-        *x = WINDOW_WIDTH/2 + margin;
-        *y = WINDOW_HEIGHT - margin - vehicleIndex * spacing;
+        // Lane C1 approaches from bottom (northbound)
+        *x = cLaneCenter; // Center of Lane C1
+        *y = WINDOW_HEIGHT - junctionMargin + vehicleIndex * spacing;
     } else if (strcmp(lane, "DL1") == 0) {
-        *x = margin + vehicleIndex * spacing;
-        *y = WINDOW_HEIGHT/2 + margin;
+        // Lane D1 approaches from left (eastbound)
+        *x = junctionMargin - vehicleIndex * spacing;
+        *y = dLaneCenter; // Center of Lane D1
     }
 }
-
 
 void updateTrafficLights(void) {
+    // Constants for easy modification and maintainability
+    const int PRIORITY_THRESHOLD = 10;
+    const int PRIORITY_RELEASE = 5;
+    const int UPDATE_INTERVAL = 5;
+    const int numLanes = 4; // Excluding AL2 from fair rotation
+    
     static time_t lastUpdate = 0;
     static int currentGreen = 0;
-    static bool priorityActive = false;  // Tracks if priority mode is active
+    static bool priorityActive = false;
     time_t now = time(NULL);
 
-    if (now - lastUpdate >= 5) { // Update every 5 seconds
-        if (laneQueues[4].count > 10) {
-            // Activate priority mode for AL2
-            priorityActive = true;
-        } 
-        
-        if (priorityActive) {
-            // AL2 (laneQueues[4]) gets green until count drops below 5
-            for (int i = 0; i < 5; i++) {
-                laneQueues[i].light_state = (i == 4 || i == 0) ? STATE_GREEN : STATE_RED;
-            }
-
-            // If AL2 drops below 5, return to normal condition
-            if (laneQueues[4].count < 5) {
-                priorityActive = false;
-            }
-
-        } else {
-            // Normal Rotation (Fair Scheduling)
-            int totalVehicles = 0;
-            int numLanes = 4; // Exclude AL2 from fair rotation
-            for (int i = 0; i < numLanes; i++) {
-                totalVehicles += laneQueues[i].count;
-            }
-
-            // Compute average vehicles per lane
-            int averageVehicles = (numLanes > 0) ? (totalVehicles / numLanes) : 1;
-            int vehiclesToServe = (averageVehicles > 0) ? averageVehicles : 1;
-
-            // Rotate through normal lanes fairly
-            for (int i = 0; i < numLanes; i++) {
-                if (laneQueues[i].count >= vehiclesToServe) {
-                    laneQueues[i].light_state = STATE_GREEN;
-                } else {
-                    laneQueues[i].light_state = STATE_RED;
-                }
-            }
-
-            // AL2 follows AL1 in normal mode
-            laneQueues[4].light_state = laneQueues[0].light_state;
-
-            // Move to the next lane in a round-robin fashion
-            currentGreen = (currentGreen + 1) % numLanes;
-        }
-
-        lastUpdate = now;
-        printf("Current green light: Lane %s\n", LANE_NAMES[currentGreen]);
+    // Only update lights every UPDATE_INTERVAL seconds
+    if (now - lastUpdate < UPDATE_INTERVAL) {
+        return;
     }
+    lastUpdate = now;
+    
+    // 1. Check for Priority Mode Activation
+    if (laneQueues[4].count > PRIORITY_THRESHOLD) {
+        priorityActive = true;
+    }
+
+    // 2. Priority Mode for AL2
+    if (priorityActive) {
+        for (int i = 0; i < 5; i++) {
+            laneQueues[i].light_state = (i == 4) ? STATE_GREEN : STATE_RED;
+        }
+        
+        // Release Priority if AL2 count drops below the release threshold
+        if (laneQueues[4].count < PRIORITY_RELEASE) {
+            priorityActive = false;
+        }
+        return;  // Exit to avoid normal scheduling
+    }
+    
+    // 3. Normal Mode (Fair Scheduling)
+    int totalVehicles = 0;
+    
+    // Count total vehicles in lanes excluding AL2
+    for (int i = 0; i < numLanes; i++) {
+        totalVehicles += laneQueues[i].count;
+    }
+    
+    // Calculate average vehicles per lane
+    int averageVehicles = (totalVehicles > 0 && numLanes > 0) ? (totalVehicles / numLanes) : 1;
+    
+    // Determine lanes needing service
+    bool needsService[4] = {false};
+    int serviceLanes = 0;
+    
+    for (int i = 0; i < numLanes; i++) {
+        if (laneQueues[i].count >= averageVehicles) {
+            needsService[i] = true;
+            serviceLanes++;
+        }
+    }
+    
+    // If no lanes meet the average threshold, consider any lane with vehicles
+    if (serviceLanes == 0) {
+        for (int i = 0; i < numLanes; i++) {
+            if (laneQueues[i].count > 0) {
+                needsService[i] = true;
+                serviceLanes++;
+            }
+        }
+    }
+    
+    // Find the next lane needing service
+    int nextGreen = currentGreen;
+    bool foundLane = false;
+    
+    for (int attempt = 0; attempt < numLanes; attempt++) {
+        nextGreen = (currentGreen + attempt) % numLanes;
+        if (needsService[nextGreen]) {
+            foundLane = true;
+            break;
+        }
+    }
+    
+    // Set all lanes to red except the chosen one
+    for (int i = 0; i < numLanes; i++) {
+        laneQueues[i].light_state = (i == nextGreen && foundLane) ? STATE_GREEN : STATE_RED;
+    }
+    
+    // AL2 follows AL1 in normal mode
+    laneQueues[4].light_state = laneQueues[0].light_state;
+    
+    // Update current green for the next cycle
+    currentGreen = (nextGreen + 1) % numLanes;
+    
+    printf("Current green light: Lane %s\n", LANE_NAMES[nextGreen]);
 }
+
 
 void processVehicles(void) {
     for (int i = 0; i < 5; i++) {
@@ -344,25 +481,31 @@ void* networkThread(void* arg) {
 }
 
 void updateAndRender(void) {
+    // Define standard positioning variables
+    const int centerX = WINDOW_WIDTH/2;  // 400 for your 800x800 window
+    const int centerY = WINDOW_HEIGHT/2; // 400 for your 800x800 window
+    const int laneOffset = LANE_WIDTH/2; // 25 for your 50px lanes
+    
     drawRoads();
 
     // Update and draw traffic lights
     updateTrafficLights();
     for (int i = 0; i < 4; i++) {
-        int x = 0, y = 0;
-        getLanePosition(LANE_NAMES[i], &x, &y, 0);
-                // Adjust traffic light positions
-        int light_x = x - 40;
-        int light_y = y;
-
+        // Calculate traffic light positions based on lane
+        int light_x = 0, light_y = 0;
+        
         if (strncmp(LANE_NAMES[i], "A", 1) == 0) {
-            light_y += 20;
+            light_x = centerX - laneOffset; // At lane position
+            light_y = centerY - ROAD_WIDTH/2 - 20; // Above the junction
         } else if (strncmp(LANE_NAMES[i], "B", 1) == 0) {
-            light_x -= 20;
+            light_x = centerX + ROAD_WIDTH/2 + 20; // Right of the junction
+            light_y = centerY - laneOffset; // At lane height
         } else if (strncmp(LANE_NAMES[i], "C", 1) == 0) {
-            light_y -= 20;
+            light_x = centerX + laneOffset; // At lane position
+            light_y = centerY + ROAD_WIDTH/2 + 20; // Below the junction
         } else if (strncmp(LANE_NAMES[i], "D", 1) == 0) {
-            light_x += 20;
+            light_x = centerX - ROAD_WIDTH/2 - 20; // Left of the junction
+            light_y = centerY + laneOffset; // At lane height
         }
 
         drawTrafficLight(light_x, light_y, laneQueues[i].light_state);
@@ -380,7 +523,7 @@ void updateAndRender(void) {
             time_t now = time(NULL);
             int wait_time = (int)(now - vehicle.arrival_time);
 
-            //color based on wait time
+            // Color based on wait time
             SDL_Color color = {0, 0, 255, 255}; // Default blue
 
             if (wait_time > 30) {
@@ -406,8 +549,6 @@ void updateAndRender(void) {
     
     SDL_RenderPresent(renderer);
 }
-
-
 void cleanup(void) {
     if (font) TTF_CloseFont(font);
     if (renderer) SDL_DestroyRenderer(renderer);
@@ -430,7 +571,7 @@ int main(void) {
     // Start network thread
     pthread_t network_thread;
     if (pthread_create(&network_thread, NULL, networkThread, NULL) != 0) {
-        perror("Failed to create network thread");
+        perror("Failed to create network SDL_Rethread");
         cleanup();
         return 1;
     }

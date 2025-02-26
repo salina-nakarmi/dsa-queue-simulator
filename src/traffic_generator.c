@@ -6,7 +6,7 @@
 #include <time.h>
 
 //#define SERVER_IP "0.0.0.0" // for all network available
-#define SERVER_IP "127.0.0.0" 
+#define SERVER_IP "127.0.0.1" 
 #define PORT 8000
 #define BUFFER_SIZE 100
 
@@ -23,12 +23,35 @@ void generateVehicleNumber(char* buffer) {
     );
 }       //sprintf is used to format the output and store it in buffer.-------------------------
 
-// Generate a random lane
-void generateLane(char* buffer) {
+// Generate a random lane (AL1, BL1, CL1, DL1, or AL2)
+void generateLane(char* lane) {
+    // Define possible lanes
     static const char* lanes[] = {"AL1", "BL1", "CL1", "DL1", "AL2"};
-    const char* selected_lane = lanes[rand() % 5];
-    strcpy(buffer, selected_lane); // Only incoming lanes (L1)
     
+    // Randomly select a lane
+    int lane_index = rand() % 5;
+    strcpy(lane, lanes[lane_index]);
+}
+
+// Generate a vehicle from a specific source lane and determine its target lane
+void generateVehicleRoute(char* source_lane, char* target_lane) {
+    // Define our source lanes (the generating lanes)
+    static const char* source_lanes[] = {"A3", "B3", "C3", "D3"};
+    
+    // Randomly select a source lane
+    int lane_index = rand() % 4;
+    strcpy(source_lane, source_lanes[lane_index]);
+    
+    // Determine target lane based on source lane (the receiving lane)
+    if (strcmp(source_lane, "A3") == 0) {
+        strcpy(target_lane, "BL1");        // A3 vehicles go to B1
+    } else if (strcmp(source_lane, "B3") == 0) {
+        strcpy(target_lane, "CL1");        // B3 vehicles go to C1
+    } else if (strcmp(source_lane, "C3") == 0) {
+        strcpy(target_lane, "DL1");        // C3 vehicles go to D1
+    } else if (strcmp(source_lane, "D3") == 0) {
+        strcpy(target_lane, "AL1");        // D3 vehicles go to A1
+    }
 }
 
 int main() {
@@ -61,22 +84,24 @@ int main() {
 
     while (1) {
         char vehicle[15];
-        char lane[4];
+        char source_lane[4];
+        char target_lane[4];
         generateVehicleNumber(vehicle);
-        generateLane(lane);
+        generateVehicleRoute(source_lane, target_lane);
 
-        //Format: vehicle_number:lane
-        snprintf(buffer, BUFFER_SIZE, "%s:%s", vehicle, lane);
+
+          // Format: vehicle_number:target_lane
+        // We're sending the vehicle to the target lane based on source lane
+        snprintf(buffer, BUFFER_SIZE, "%s:%s", vehicle, target_lane);
         // Send message
         ssize_t sent_bytes = send(sock, buffer, strlen(buffer), 0);
     if (sent_bytes < 0) {
         perror("Failed to send");
         break;
     }
-    printf("Sent vehicle: %s to lane: %s\n", vehicle, lane);
+     printf("Vehicle from %s: %s sent to lane: %s\n", source_lane, vehicle, target_lane);
 
-        //random delay between 1-3 seconds
-        sleep(1+(rand() % 3));
+    usleep((100000 + (rand() % 400000)));  // Delay between 0.1 to 0.5 seconds
     }
 
     close(sock);

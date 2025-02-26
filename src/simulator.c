@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <time.h>
+#include <math.h>
 #include "../include/queue.h"
 
 // Window and graphics constants
@@ -21,6 +22,21 @@
 #define PORT 8000
 #define FONT_SIZE 24
 #define FONT_PATH "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+// Add these declarations to the top of your simulator.c file
+#define MAX_MOVING_VEHICLES 10
+#define MOVEMENT_SPEED 2  // pixels per frame
+
+typedef struct {
+    Vehicle vehicle;
+    int current_x;
+    int current_y;
+    int target_x;
+    int target_y;
+    bool active;
+} MovingVehicle;
+
+// Array to store vehicles currently moving through the intersection
+MovingVehicle movingVehicles[MAX_MOVING_VEHICLES];
 
 // Global variables
 SDL_Window* window = NULL;
@@ -323,7 +339,7 @@ void updateTrafficLights(void) {
     lastUpdate = now;
     
     // 1. Check for Priority Mode Activation
-    if (laneQueues[4].count > PRIORITY_THRESHOLD) {
+    if (laneQueues[4].count >= PRIORITY_THRESHOLD) {
         priorityActive = true;
     }
 
@@ -398,13 +414,121 @@ void updateTrafficLights(void) {
     printf("Current green light: Lane %s\n", LANE_NAMES[nextGreen]);
 }
 
+// Initialize the moving vehicles array in main() before the main loop
+void initMovingVehicles(void) {
+    for (int i = 0; i < MAX_MOVING_VEHICLES; i++) {
+        movingVehicles[i].active = false;
+    }
+}
 
+// Get destination coordinates based on source lane
+void getDestinationCoordinates(const char* sourceLane, int* destX, int* destY) {
+    const int centerX = WINDOW_WIDTH/2;
+    const int centerY = WINDOW_HEIGHT/2;
+    
+    // Set destination based on source lane
+    if (strcmp(sourceLane, "AL1") == 0 || strcmp(sourceLane, "AL2") == 0) {
+        // A lanes exit to the bottom
+        *destX = centerX - ROAD_WIDTH/2 + LANE_WIDTH/2;
+        *destY = WINDOW_HEIGHT;
+    } else if (strcmp(sourceLane, "BL1") == 0) {
+        // B lane exits to the left
+        *destX = 0;
+        *destY = centerY - ROAD_WIDTH/2 + LANE_WIDTH/2;
+    } else if (strcmp(sourceLane, "CL1") == 0) {
+        // C lane exits to the top
+        *destX = centerX + ROAD_WIDTH/2 - LANE_WIDTH/2;
+        *destY = 0;
+    } else if (strcmp(sourceLane, "DL1") == 0) {
+        // D lane exits to the right
+        *destX = WINDOW_WIDTH;
+        *destY = centerY + ROAD_WIDTH/2 - LANE_WIDTH/2;
+    }
+}
+
+// Add a vehicle to moving vehicles array
+void addMovingVehicle(Vehicle* vehicle) {
+    for (int i = 0; i < MAX_MOVING_VEHICLES; i++) {
+        if (!movingVehicles[i].active) {
+            // Find starting position based on lane
+            int startX, startY;
+            getLanePosition(vehicle->lane, &startX, &startY, 0);
+            
+            // Find destination based on lane
+            int destX, destY;
+            getDestinationCoordinates(vehicle->lane, &destX, &destY);
+            
+            // Set up moving vehicle
+            movingVehicles[i].vehicle = *vehicle;
+            movingVehicles[i].current_x = startX;
+            movingVehicles[i].current_y = startY;
+            movingVehicles[i].target_x = destX;
+            movingVehicles[i].target_y = destY;
+            movingVehicles[i].active = true;
+            
+            printf("Vehicle %s now moving through intersection from %s\n", 
+                   vehicle->vehicle_number, vehicle->lane);
+            return;
+        }
+    }
+}
+
+// Update positions of all moving vehicles
+void updateMovingVehicles(void) {
+    for (int i = 0; i < MAX_MOVING_VEHICLES; i++) {
+        if (movingVehicles[i].active) {
+            // Calculate direction vector
+            int dx = movingVehicles[i].target_x - movingVehicles[i].current_x;
+            int dy = movingVehicles[i].target_y - movingVehicles[i].current_y;
+            
+            // Normalize the vector
+            double length = sqrt(dx*dx + dy*dy);
+            
+            // If we're very close to the target, consider it reached
+            if (length < MOVEMENT_SPEED) {
+                movingVehicles[i].active = false;
+                printf("Vehicle %s exited the intersection\n", 
+                       movingVehicles[i].vehicle.vehicle_number);
+                continue;
+            }
+            
+            // Update position
+            double nx = dx / length;
+            double ny = dy / length;
+            
+            movingVehicles[i].current_x += (int)(nx * MOVEMENT_SPEED);
+            movingVehicles[i].current_y += (int)(ny * MOVEMENT_SPEED);
+        }
+    }
+}
+
+// Draw all moving vehicles
+void drawMovingVehicles(void) {
+    for (int i = 0; i < MAX_MOVING_VEHICLES; i++) {
+        if (movingVehicles[i].active) {
+            // Determine color based on lane (you could use the same logic as in drawVehicle)
+            SDL_Color color = {0, 255, 0, 255}; // Green for moving vehicles
+            
+            drawVehicle(
+                movingVehicles[i].current_x, 
+                movingVehicles[i].current_y, 
+                color, 
+                movingVehicles[i].vehicle.lane
+            );
+        }
+    }
+}
+
+
+// Modify the processVehicles function to add vehicles to the moving array instead of just removing them
 void processVehicles(void) {
     for (int i = 0; i < 5; i++) {
         if (laneQueues[i].light_state == STATE_GREEN && laneQueues[i].count > 0) {
             Vehicle vehicle;
-            dequeueVehicle(&laneQueues[i], &vehicle);
-            printf("Vehicle %s exited from lane %s\n", vehicle.vehicle_number, vehicle.lane);
+            if (dequeueVehicle(&laneQueues[i], &vehicle)) {
+                // Instead of just printing, add to moving vehicles
+                addMovingVehicle(&vehicle);
+            }
         }
     }
 }
@@ -488,6 +612,9 @@ void updateAndRender(void) {
     
     drawRoads();
 
+      // Update moving vehicles
+    updateMovingVehicles();
+
     // Update and draw traffic lights
     updateTrafficLights();
     for (int i = 0; i < 4; i++) {
@@ -540,6 +667,10 @@ void updateAndRender(void) {
         pthread_mutex_unlock(&laneQueues[i].mutex);
     }
 
+        // Draw vehicles that are moving through the intersection
+    drawMovingVehicles();
+    
+    // Process vehicles (now adds them to moving array instead of just removing)
     processVehicles();
 
     // Debug output for queue sizes

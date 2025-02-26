@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -I/usr/include/SDL2 -I./include -Wall -Wextra
-LDFLAGS = -lSDL2 -lSDL2_ttf -pthread
+LDFLAGS = -lSDL2 -lSDL2_ttf -pthread -lm
 
 BUILD_DIR = build
 SRC_DIR = src

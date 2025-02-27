@@ -23,10 +23,10 @@ void generateVehicleNumber(char* buffer) {
     );
 }       //sprintf is used to format the output and store it in buffer.-------------------------
 
-// Generate a random lane (AL1, BL1, CL1, DL1, or AL2)
+// Generate a random lane (A1, B1, C1, D1, or AL2)
 void generateLane(char* lane) {
     // Define possible lanes including the new lanes
-    static const char* lanes[] = {"AL1", "BL1", "CL1", "DL1", "AL2", "BL2", "CL2", "DL2"};
+    static const char* lanes[] = {"A1", "B1", "C1", "D1", "A2", "B2", "C2", "D2"};
     
     // Randomly select a lane
     int lane_index = rand() % 8;
@@ -36,7 +36,7 @@ void generateLane(char* lane) {
 // Generate a vehicle from a specific source lane and determine its target lane
 void generateVehicleRoute(char* source_lane, char* target_lane) {
     // Define our source lanes (the generating lanes)
-    static const char* source_lanes[] = {"A3", "B3", "C3", "D3", "AL2", "BL2", "CL2", "DL2"};
+    static const char* source_lanes[] = {"A3", "B3", "C3", "D3", "A2", "B2", "C2", "D2"};
     
     // Randomly select a source lane
     int lane_index = rand() % 8;
@@ -44,25 +44,25 @@ void generateVehicleRoute(char* source_lane, char* target_lane) {
     
     // Determine target lane based on source lane
     if (strcmp(source_lane, "A3") == 0) {
-        strcpy(target_lane, "BL1");        // A3 vehicles go to B1
+        strcpy(target_lane, "B1");        // A3 vehicles go to B1
     } else if (strcmp(source_lane, "B3") == 0) {
-        strcpy(target_lane, "CL1");        // B3 vehicles go to C1
+        strcpy(target_lane, "C1");        // B3 vehicles go to C1
     } else if (strcmp(source_lane, "C3") == 0) {
-        strcpy(target_lane, "DL1");        // C3 vehicles go to D1
+        strcpy(target_lane, "D1");        // C3 vehicles go to D1
     } else if (strcmp(source_lane, "D3") == 0) {
-        strcpy(target_lane, "AL1");        // D3 vehicles go to A1
-    } else if (strcmp(source_lane, "AL2") == 0) {
+        strcpy(target_lane, "A1");        // D3 vehicles go to A1
+    } else if (strcmp(source_lane, "A2") == 0) {
         // AL2 can go to B1 (right) or C1 (straight)
-        strcpy(target_lane, (rand() % 2 == 0) ? "BL1" : "CL1");
+        strcpy(target_lane, (rand() % 2 == 0) ? "B1" : "C1");
     } else if (strcmp(source_lane, "BL2") == 0) {
         // BL2 can go to C1 (right) or D1 (straight)
-        strcpy(target_lane, (rand() % 2 == 0) ? "CL1" : "DL1");
+        strcpy(target_lane, (rand() % 2 == 0) ? "C1" : "D1");
     } else if (strcmp(source_lane, "CL2") == 0) {
         // CL2 can go to D1 (right) or A1 (straight)
-        strcpy(target_lane, (rand() % 2 == 0) ? "DL1" : "AL1");
+        strcpy(target_lane, (rand() % 2 == 0) ? "D1" : "A1");
     } else if (strcmp(source_lane, "DL2") == 0) {
         // DL2 can go to A1 (right) or B1 (straight)
-        strcpy(target_lane, (rand() % 2 == 0) ? "AL1" : "BL1");
+        strcpy(target_lane, (rand() % 2 == 0) ? "A1" : "B1");
     }
 }
 

@@ -24,6 +24,7 @@ void generateVehicleNumber(char* buffer) {
 }       //sprintf is used to format the output and store it in buffer.-------------------------
 
 
+
 // Generate a vehicle from a specific source lane and determine its target lane
 void generateVehicleRoute(char* source_lane, char* target_lane) {
     // Define our source lanes (the generating lanes)

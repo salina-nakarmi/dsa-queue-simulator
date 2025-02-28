@@ -149,8 +149,6 @@ const LaneMapping LANE_MAPPINGS[] = {
 // Function definition
 
 
-// Add source lane position function
-// Get lane position for all lanes including A1, A2, B1, B2, C1, C2, D1, D2 and source lanes A3, B3, C3, D3
 void getSourceLanePosition(const char* lane, int* x, int* y, int vehicleIndex) {
     const int spacing = 30; // Space between vehicles
     const int junctionMargin = 150;
@@ -158,56 +156,33 @@ void getSourceLanePosition(const char* lane, int* x, int* y, int vehicleIndex) {
     const int centerY = WINDOW_HEIGHT / 2;
 
     // Source Lanes
-    if (strcmp(lane, "A3") == 0) {
-        *x = centerX + ROAD_WIDTH/3.5 + LANE_WIDTH/3;
+    if (strcmp(lane, "A2") == 0) {
+        *x = centerX + LANE_WIDTH / 2;
+        *y = junctionMargin - vehicleIndex * spacing;
+    } else if (strcmp(lane, "B2") == 0) {
+        *x = WINDOW_WIDTH - junctionMargin + vehicleIndex * spacing;
+        *y = centerY + LANE_WIDTH / 2;
+    } else if (strcmp(lane, "C2") == 0) {
+        *x = centerX - LANE_WIDTH / 2;
+        *y = WINDOW_HEIGHT - junctionMargin + vehicleIndex * spacing;
+    } else if (strcmp(lane, "D2") == 0) {
+        *x = junctionMargin - vehicleIndex * spacing;
+        *y = centerY - LANE_WIDTH / 2;
+    } else if (strcmp(lane, "A3") == 0) {
+        *x = centerX + ROAD_WIDTH / 3.5 + LANE_WIDTH / 3;
         *y = junctionMargin - vehicleIndex * spacing;
     } else if (strcmp(lane, "B3") == 0) {
         *x = WINDOW_WIDTH - junctionMargin + vehicleIndex * spacing;
-        *y = centerY + ROAD_WIDTH/3.5 + LANE_WIDTH/3;
+        *y = centerY + ROAD_WIDTH / 3.5 + LANE_WIDTH / 3;
     } else if (strcmp(lane, "C3") == 0) {
-        *x = centerX - ROAD_WIDTH/3.5 - LANE_WIDTH/3;
+        *x = centerX - ROAD_WIDTH / 3.5 - LANE_WIDTH / 3;
         *y = WINDOW_HEIGHT - junctionMargin + vehicleIndex * spacing;
     } else if (strcmp(lane, "D3") == 0) {
         *x = junctionMargin - vehicleIndex * spacing;
-        *y = centerY - ROAD_WIDTH/3.5 - LANE_WIDTH/3;
-    } 
-
-    // A Lanes (Top to Bottom)
-    else if (strcmp(lane, "A1") == 0) {
-        *x = centerX - ROAD_WIDTH/3 + LANE_WIDTH/3;
-        *y = junctionMargin - vehicleIndex * spacing;
-    } else if (strcmp(lane, "A2") == 0) {
-        *x = centerX + LANE_WIDTH/3.5;
-        *y = junctionMargin - vehicleIndex * spacing;
-    }
-
-    // B Lanes (Right to Left)
-    else if (strcmp(lane, "B1") == 0) {
-        *x = WINDOW_WIDTH - junctionMargin + vehicleIndex * spacing;
-        *y = centerY - ROAD_WIDTH/3 + LANE_WIDTH/3;
-    } else if (strcmp(lane, "B2") == 0) {
-        *x = WINDOW_WIDTH - junctionMargin + vehicleIndex * spacing;
-        *y = centerY + LANE_WIDTH/3.5;
-    }
-
-    // C Lanes (Bottom to Top)
-    else if (strcmp(lane, "C1") == 0) {
-        *x = centerX + ROAD_WIDTH/3 - LANE_WIDTH/3;
-        *y = WINDOW_HEIGHT - junctionMargin + vehicleIndex * spacing;
-    } else if (strcmp(lane, "C2") == 0) {
-        *x = centerX - LANE_WIDTH/3.5;
-        *y = WINDOW_HEIGHT - junctionMargin + vehicleIndex * spacing;
-    }
-
-    // D Lanes (Left to Right)
-    else if (strcmp(lane, "D1") == 0) {
-        *x = junctionMargin - vehicleIndex * spacing;
-        *y = centerY + ROAD_WIDTH/3 - LANE_WIDTH/3;
-    } else if (strcmp(lane, "D2") == 0) {
-        *x = junctionMargin - vehicleIndex * spacing;
-        *y = centerY - LANE_WIDTH/3.5;
+        *y = centerY - ROAD_WIDTH / 3.5 - LANE_WIDTH / 3;
     }
 }
+
 
 
 void drawRoads(void) {
@@ -339,16 +314,15 @@ void getLanePosition(const char* lane, int* x, int* y, int vehicleIndex) {
         *y = d2LaneCenter;
     }
 }
-
 void updateTrafficLights(void) {
-    // Constants for easy modification and maintainability
-    const int PRIORITY_THRESHOLD = 10;
-    const int PRIORITY_RELEASE = 5;
-    const int UPDATE_INTERVAL = 5;
-    
+    // Constants for priority thresholds
+    const int PRIORITY_THRESHOLD = 10;  // A2 gets priority if queue >= 10
+    const int PRIORITY_RELEASE = 5;     // Release priority if queue < 5
+    const int UPDATE_INTERVAL = 5;      // Update lights every 5 seconds
+
     static time_t lastUpdate = 0;
-    static int currentGreen = 0;
-    static bool priorityActive = false;
+    static int currentGreen = 0;        // Index of the current green lane (A2, B2, C2, D2)
+    static bool priorityActive = false; // Whether A2 has priority
     time_t now = time(NULL);
 
     // Only update lights every UPDATE_INTERVAL seconds
@@ -356,107 +330,55 @@ void updateTrafficLights(void) {
         return;
     }
     lastUpdate = now;
-    
-    // 1. Check for Priority Mode Activation (A2 is at index 4)
+
+    // 1. Check for Priority Mode Activation (A2 is at index 4 in LANE_NAMES)
     if (laneQueues[4].count >= PRIORITY_THRESHOLD) {
         priorityActive = true;
     }
 
-    // 2. Priority Mode for AL2
+    // 2. Priority Mode for A2
     if (priorityActive) {
+        // Set A2 to green and all other controlled lanes to red
         for (int i = 0; i < NUM_LANES; i++) {
-            laneQueues[i].light_state = (i == 4) ? STATE_GREEN : STATE_RED;
+            if (strcmp(LANE_NAMES[i], "A2") == 0 || strcmp(LANE_NAMES[i], "B2") == 0 ||
+                strcmp(LANE_NAMES[i], "C2") == 0 || strcmp(LANE_NAMES[i], "D2") == 0) {
+                laneQueues[i].light_state = (strcmp(LANE_NAMES[i], "A2") == 0) ? STATE_GREEN : STATE_RED;
+            }
         }
-        
-        // Release Priority if AL2 count drops below the release threshold
+
+        // Release Priority if A2 queue drops below the release threshold
         if (laneQueues[4].count < PRIORITY_RELEASE) {
             priorityActive = false;
         }
         return;  // Exit to avoid normal scheduling
     }
-    
+
     // 3. Normal Mode (Fair Scheduling)
-    int totalVehicles = 0;
-    
-    // Count total vehicles in all lanes excluding priority lane
+    // Set all controlled lanes to red
     for (int i = 0; i < NUM_LANES; i++) {
-        if (i != 4) { // Skip the priority lane (AL2)
-            totalVehicles += laneQueues[i].count;
+        if (strcmp(LANE_NAMES[i], "A2") == 0 || strcmp(LANE_NAMES[i], "B2") == 0 ||
+            strcmp(LANE_NAMES[i], "C2") == 0 || strcmp(LANE_NAMES[i], "D2") == 0) {
+            laneQueues[i].light_state = STATE_RED;
         }
     }
-    
-    // Calculate average vehicles per lane
-    int averageVehicles = (totalVehicles > 0) ? (totalVehicles / (NUM_LANES - 1)) : 1;
-    
-    // Determine lanes needing service
-    bool needsService[12] = {false};
-    int serviceLanes = 0;
-    
-    for (int i = 0; i < NUM_LANES; i++) {
-        if (i != 4 && laneQueues[i].count >= averageVehicles) {
-            needsService[i] = true;
-            serviceLanes++;
-        }
+
+    // Set the current controlled lane to green
+    if (strcmp(LANE_NAMES[currentGreen], "A2") == 0 || strcmp(LANE_NAMES[currentGreen], "B2") == 0 ||
+        strcmp(LANE_NAMES[currentGreen], "C2") == 0 || strcmp(LANE_NAMES[currentGreen], "D2") == 0) {
+        laneQueues[currentGreen].light_state = STATE_GREEN;
     }
-    
-    // If no lanes meet the average threshold, consider any lane with vehicles
-    if (serviceLanes == 0) {
-        for (int i = 0; i < NUM_LANES; i++) {
-            if (i != 4 && laneQueues[i].count > 0) {
-                needsService[i] = true;
-                serviceLanes++;
-            }
-        }
+
+    // Move to the next controlled lane for the next cycle
+    currentGreen = (currentGreen + 1) % NUM_LANES;
+
+    // Ensure currentGreen points to a controlled lane (A2, B2, C2, D2)
+    while (strcmp(LANE_NAMES[currentGreen], "A2") != 0 && strcmp(LANE_NAMES[currentGreen], "B2") != 0 &&
+           strcmp(LANE_NAMES[currentGreen], "C2") != 0 && strcmp(LANE_NAMES[currentGreen], "D2") != 0) {
+        currentGreen = (currentGreen + 1) % NUM_LANES;
     }
-    
-    // Find the next lane needing service
-    int nextGreen = currentGreen;
-    bool foundLane = false;
-    
-    for (int attempt = 0; attempt < NUM_LANES; attempt++) {
-        nextGreen = (currentGreen + attempt) % NUM_LANES;
-        if (nextGreen != 4 && needsService[nextGreen]) { // Skip priority lane
-            foundLane = true;
-            break;
-        }
-    }
-    
-    // Set all lanes to red except the chosen one
-    for (int i = 0; i < NUM_LANES; i++) {
-        laneQueues[i].light_state = (i == nextGreen && foundLane) ? STATE_GREEN : STATE_RED;
-    }
-    
-    // ADD THIS SECTION HERE - Coordinate source and target lanes
-    // Map source lanes to their target lanes
-    const int sourceToTarget[][2] = {
-        {5, 0},  // A3 (index 5) to AL1 (index 0)
-        {6, 1},  // B3 (index 6) to BL1 (index 1)
-        {7, 2},  // C3 (index 7) to CL1 (index 2)
-        {8, 3},  // D3 (index 8) to DL1 (index 3)
-        // Add additional mappings for other source lanes as needed
-    };
-    
-    // Number of mappings in the sourceToTarget array
-    const int numMappings = sizeof(sourceToTarget) / sizeof(sourceToTarget[0]);
-    
-    // If a source lane has a green light, ensure its target lane also has a green light
-    for (int i = 0; i < numMappings; i++) {
-        int sourceIndex = sourceToTarget[i][0];
-        int targetIndex = sourceToTarget[i][1];
-        
-        if (sourceIndex < NUM_LANES && targetIndex < NUM_LANES) {
-            if (laneQueues[sourceIndex].light_state == STATE_GREEN) {
-                // Ensure the target lane is also green
-                laneQueues[targetIndex].light_state = STATE_GREEN;
-            }
-        }
-    }
-    // END OF ADDED SECTION
-    
-    // Update current green for the next cycle
-    currentGreen = (nextGreen + 1) % NUM_LANES;
-    
-    printf("Current green light: Lane %s\n", LANE_NAMES[nextGreen]);
+
+    // Print the current green lane
+    printf("Current green light: Lane %s\n", LANE_NAMES[currentGreen]);
 }
 
 // Get destination coordinates based on source lane
@@ -563,7 +485,7 @@ void calculateWaypoints(MovingVehicle* movingVehicle) {
     }
 }
 
-// Define the function for lane2 types
+// Calculate waypoints for Lane 2 (A2, B2, C2, D2)
 void calculateWaypointsForLane2(MovingVehicle* movingVehicle, bool turnRight) {
     const int centerX = WINDOW_WIDTH / 2;
     const int centerY = WINDOW_HEIGHT / 2;
@@ -572,14 +494,13 @@ void calculateWaypointsForLane2(MovingVehicle* movingVehicle, bool turnRight) {
     const char* lane = movingVehicle->vehicle.lane;
 
     // A2 can go to C1 (straight) or B1 (right)
-    if (strcmp(lane, "AL2") == 0) {
+    if (strcmp(lane, "A2") == 0) {
         // Start position in A2
         movingVehicle->current_x = centerX + laneWidth/2;
         movingVehicle->current_y = centerY - roadWidth/2;
         
         if (turnRight) {
             // Right turn to B1
-            // First waypoint: turn point
             movingVehicle->waypoints[0][0] = centerX + roadWidth/2;
             movingVehicle->waypoints[0][1] = centerY - laneWidth/2;
             
@@ -590,75 +511,21 @@ void calculateWaypointsForLane2(MovingVehicle* movingVehicle, bool turnRight) {
             movingVehicle->total_waypoints = 2;
         } else {
             // Go straight to C1
-            // One waypoint: exit on C1
             movingVehicle->waypoints[0][0] = centerX + laneWidth/2;
             movingVehicle->waypoints[0][1] = WINDOW_HEIGHT;
             
             movingVehicle->total_waypoints = 1;
         }
     }
-    // B2 can go to D1 (straight) or A1 (right)
-    else if (strcmp(lane, "BL2") == 0) {
+    // B2 can go to D1 (straight) or C1 (right)
+    else if (strcmp(lane, "B2") == 0) {
         // Start position in B2
         movingVehicle->current_x = centerX + roadWidth/2;
         movingVehicle->current_y = centerY + laneWidth/2;
         
         if (turnRight) {
-            // Right turn to A1
-            // First waypoint: turn point
-            movingVehicle->waypoints[0][0] = centerX + laneWidth/2;
-            movingVehicle->waypoints[0][1] = centerY - roadWidth/2;
-            
-            // Final waypoint: exit on A1
-            movingVehicle->waypoints[1][0] = centerX - laneWidth/2;
-            movingVehicle->waypoints[1][1] = 0;
-            
-            movingVehicle->total_waypoints = 2;
-        } else {
-            // Go straight to D1
-            // One waypoint: exit on D1
-            movingVehicle->waypoints[0][0] = 0;
-            movingVehicle->waypoints[0][1] = centerY + laneWidth/2;
-            
-            movingVehicle->total_waypoints = 1;
-        }
-    }
-    // C2 can go to A1 (straight) or B1 (right)
-    else if (strcmp(lane, "CL2") == 0) {
-        // Start position in C2
-        movingVehicle->current_x = centerX - laneWidth/2;
-        movingVehicle->current_y = centerY + roadWidth/2;
-        
-        if (turnRight) {
-            // Right turn to B1
-            // First waypoint: turn point
-            movingVehicle->waypoints[0][0] = centerX - roadWidth/2;
-            movingVehicle->waypoints[0][1] = centerY + laneWidth/2;
-            
-            // Final waypoint: exit on B1
-            movingVehicle->waypoints[1][0] = WINDOW_WIDTH;
-            movingVehicle->waypoints[1][1] = centerY - laneWidth/2;
-            
-            movingVehicle->total_waypoints = 2;
-        } else {
-            // Go straight to A1
-            // One waypoint: exit on A1
-            movingVehicle->waypoints[0][0] = centerX - laneWidth/2;
-            movingVehicle->waypoints[0][1] = 0;
-            
-            movingVehicle->total_waypoints = 1;
-        }
-    }
-    // D2 can go to B1 (straight) or C1 (right)
-    else if (strcmp(lane, "DL2") == 0) {
-        // Start position in D2
-        movingVehicle->current_x = centerX - roadWidth/2;
-        movingVehicle->current_y = centerY - laneWidth/2;
-        
-        if (turnRight) {
             // Right turn to C1
-            // First waypoint: turn point
-            movingVehicle->waypoints[0][0] = centerX - laneWidth/2;
+            movingVehicle->waypoints[0][0] = centerX + laneWidth/2;
             movingVehicle->waypoints[0][1] = centerY + roadWidth/2;
             
             // Final waypoint: exit on C1
@@ -667,8 +534,55 @@ void calculateWaypointsForLane2(MovingVehicle* movingVehicle, bool turnRight) {
             
             movingVehicle->total_waypoints = 2;
         } else {
+            // Go straight to D1
+            movingVehicle->waypoints[0][0] = 0;
+            movingVehicle->waypoints[0][1] = centerY + laneWidth/2;
+            
+            movingVehicle->total_waypoints = 1;
+        }
+    }
+    // C2 can go to A1 (straight) or D1 (right)
+    else if (strcmp(lane, "C2") == 0) {
+        // Start position in C2
+        movingVehicle->current_x = centerX - laneWidth/2;
+        movingVehicle->current_y = centerY + roadWidth/2;
+        
+        if (turnRight) {
+            // Right turn to D1
+            movingVehicle->waypoints[0][0] = centerX - roadWidth/2;
+            movingVehicle->waypoints[0][1] = centerY + laneWidth/2;
+            
+            // Final waypoint: exit on D1
+            movingVehicle->waypoints[1][0] = 0;
+            movingVehicle->waypoints[1][1] = centerY + laneWidth/2;
+            
+            movingVehicle->total_waypoints = 2;
+        } else {
+            // Go straight to A1
+            movingVehicle->waypoints[0][0] = centerX - laneWidth/2;
+            movingVehicle->waypoints[0][1] = 0;
+            
+            movingVehicle->total_waypoints = 1;
+        }
+    }
+    // D2 can go to B1 (straight) or A1 (right)
+    else if (strcmp(lane, "D2") == 0) {
+        // Start position in D2
+        movingVehicle->current_x = centerX - roadWidth/2;
+        movingVehicle->current_y = centerY - laneWidth/2;
+        
+        if (turnRight) {
+            // Right turn to A1
+            movingVehicle->waypoints[0][0] = centerX - laneWidth/2;
+            movingVehicle->waypoints[0][1] = centerY - roadWidth/2;
+            
+            // Final waypoint: exit on A1
+            movingVehicle->waypoints[1][0] = centerX - laneWidth/2;
+            movingVehicle->waypoints[1][1] = 0;
+            
+            movingVehicle->total_waypoints = 2;
+        } else {
             // Go straight to B1
-            // One waypoint: exit on B1
             movingVehicle->waypoints[0][0] = WINDOW_WIDTH;
             movingVehicle->waypoints[0][1] = centerY - laneWidth/2;
             
@@ -676,10 +590,6 @@ void calculateWaypointsForLane2(MovingVehicle* movingVehicle, bool turnRight) {
         }
     }
 }
-
-    
-  
-
 
 
 
@@ -727,58 +637,37 @@ void addMovingVehicle(Vehicle* vehicle) {
 void updateMovingVehicles(void) {
     for (int i = 0; i < MAX_MOVING_VEHICLES; i++) {
         if (movingVehicles[i].active && movingVehicles[i].total_waypoints > 0) {
-            
-            // Determine target lane based on source lane
-            const char* sourceLane = movingVehicles[i].vehicle.lane;
-            const char* targetLane = NULL;
-            
-            if (strcmp(sourceLane, "A3") == 0) targetLane = "B1";
-            else if (strcmp(sourceLane, "B3") == 0) targetLane = "C1";
-            else if (strcmp(sourceLane, "C3") == 0) targetLane = "D1";
-            else if (strcmp(sourceLane, "D3") == 0) targetLane = "A1";
-
-            // Check if target lane's light is green
-            bool canMove = true;
-            if (targetLane) {
-                for (int j = 0; j < NUM_LANES; j++) {
-                    if (strcmp(targetLane, LANE_NAMES[j]) == 0) {
-                        if (laneQueues[j].light_state == STATE_RED) {
-                            canMove = false;
-                        }
-                        break;
-                    }
-                }
-            }
-            
-            // Skip movement if target lane has red light
-            if (!canMove) {
-                printf("Vehicle %s stopped at red light, waiting in %s\n", 
-                       movingVehicles[i].vehicle.vehicle_number, sourceLane);
-                continue;
-            }
-
-            // Proceed with movement towards the next waypoint
+            // Get the current waypoint
             int target_waypoint = movingVehicles[i].current_waypoint;
             int target_x = movingVehicles[i].waypoints[target_waypoint][0];
             int target_y = movingVehicles[i].waypoints[target_waypoint][1];
 
-            // Move towards the target waypoint
+            // Calculate the direction vector
             int dx = target_x - movingVehicles[i].current_x;
             int dy = target_y - movingVehicles[i].current_y;
             double length = sqrt(dx * dx + dy * dy);
 
-            if (length < MOVEMENT_SPEED) {
-                movingVehicles[i].current_waypoint++;
-                if (movingVehicles[i].current_waypoint >= movingVehicles[i].total_waypoints) {
-                    movingVehicles[i].active = false;
-                    printf("Vehicle %s exited the intersection\n", 
-                           movingVehicles[i].vehicle.vehicle_number);
-                }
-            } else {
+            // Normalize the direction vector
+            if (length > 0) {
                 double nx = dx / length;
                 double ny = dy / length;
+
+                // Move the vehicle
                 movingVehicles[i].current_x += (int)(nx * MOVEMENT_SPEED);
                 movingVehicles[i].current_y += (int)(ny * MOVEMENT_SPEED);
+
+                // Check if the vehicle has reached the current waypoint
+                if (abs(movingVehicles[i].current_x - target_x) < MOVEMENT_SPEED &&
+                    abs(movingVehicles[i].current_y - target_y) < MOVEMENT_SPEED) {
+                    movingVehicles[i].current_waypoint++;
+
+                    // If all waypoints are completed, deactivate the vehicle
+                    if (movingVehicles[i].current_waypoint >= movingVehicles[i].total_waypoints) {
+                        movingVehicles[i].active = false;
+                        printf("Vehicle %s exited the intersection\n",
+                               movingVehicles[i].vehicle.vehicle_number);
+                    }
+                }
             }
         }
     }
@@ -805,15 +694,35 @@ void drawMovingVehicles(void) {
 
 void processVehicles(void) {
     for (int i = 0; i < NUM_LANES; i++) {
-        if (laneQueues[i].light_state == STATE_GREEN && laneQueues[i].count > 0) {
-            Vehicle vehicle;
-            if (dequeueVehicle(&laneQueues[i], &vehicle)) {
-                addMovingVehicle(&vehicle);
+        // Handle A3, B3, C3, D3 (bypass traffic lights)
+        if (strcmp(LANE_NAMES[i], "A3") == 0 || strcmp(LANE_NAMES[i], "B3") == 0 ||
+            strcmp(LANE_NAMES[i], "C3") == 0 || strcmp(LANE_NAMES[i], "D3") == 0) {
+            // Continuously dequeue vehicles from these lanes
+            while (laneQueues[i].count > 0) {
+                Vehicle vehicle;
+                if (dequeueVehicle(&laneQueues[i], &vehicle)) {
+                    addMovingVehicle(&vehicle);
+                    printf("Vehicle %s dequeued from lane %s (no traffic light)\n",
+                           vehicle.vehicle_number, vehicle.lane);
+                }
+            }
+        }
+        // Handle A2, B2, C2, D2 (follow traffic lights)
+        else if (strcmp(LANE_NAMES[i], "A2") == 0 || strcmp(LANE_NAMES[i], "B2") == 0 ||
+                 strcmp(LANE_NAMES[i], "C2") == 0 || strcmp(LANE_NAMES[i], "D2") == 0) {
+            if (laneQueues[i].light_state == STATE_GREEN && laneQueues[i].count > 0) {
+                Vehicle vehicle;
+                if (dequeueVehicle(&laneQueues[i], &vehicle)) {
+                    addMovingVehicle(&vehicle);
+                    printf("Vehicle %s dequeued from lane %s (green light)\n",
+                           vehicle.vehicle_number, vehicle.lane);
+                }
             }
         }
     }
 }
 
+// Update networkThread to handle A2, B2, C2, and D2
 void* networkThread(void* arg) {
     (void)arg;
     int server_fd, client_fd;
@@ -867,48 +776,24 @@ void* networkThread(void* arg) {
             char lane[4];
 
             if (sscanf(buffer, "%[^:]:%s", vehicle.vehicle_number, lane) == 2) {
-    // Check if this is a direct lane assignment or a route
-    if (strstr(lane, "L1") || strcmp(lane, "AL2") == 0) {
-        // Direct lane assignment
-        strcpy(vehicle.lane, lane);
-        vehicle.arrival_time = time(NULL);
-        
-        for (int i = 0; i < NUM_LANES; i++) {
-            if (strcmp(lane, LANE_NAMES[i]) == 0) {
-                enqueueVehicle(&laneQueues[i], vehicle);
-                printf("Vehicle %s added to lane %s\n", vehicle.vehicle_number, lane);
-                break;
-            }
-        }
-    } else {
-        // This is a source lane - determine which target lane it should go to
-        char target_lane[4];
-        if (strcmp(lane, "A3") == 0) strcpy(target_lane, "B1");
-        else if (strcmp(lane, "B3") == 0) strcpy(target_lane, "C1");
-        else if (strcmp(lane, "C3") == 0) strcpy(target_lane, "D1");
-        else if (strcmp(lane, "D3") == 0) strcpy(target_lane, "A1");
+                strcpy(vehicle.lane, lane);
+                vehicle.arrival_time = time(NULL);
 
-        
-        // Add to both source and target queues
-        strcpy(vehicle.lane, lane);
-        vehicle.arrival_time = time(NULL);
-        
-        // Find source lane index
-        for (int i = 5; i < NUM_LANES; i++) {
-            if (strcmp(lane, LANE_NAMES[i]) == 0) {
-                enqueueVehicle(&laneQueues[i], vehicle);
-                printf("Vehicle %s added to source lane %s\n", vehicle.vehicle_number, lane);
-                break;
+                // Add vehicle to the appropriate lane queue
+                for (int i = 0; i < NUM_LANES; i++) {
+                    if (strcmp(lane, LANE_NAMES[i]) == 0) {
+                        enqueueVehicle(&laneQueues[i], vehicle);
+                        printf("Vehicle %s added to lane %s\n", vehicle.vehicle_number, lane);
+                        break;
+                    }
+                }
             }
         }
-    }
-}
-        }      
+
         close(client_fd);
         printf("Client disconnected\n");
     }
 }
-
 
 void updateAndRender(void) {
     // Define standard positioning variables
@@ -969,10 +854,7 @@ void updateAndRender(void) {
     // Process vehicles (now adds them to moving array instead of just removing)
     processVehicles();
 
-    // Debug output for queue sizes
-    for (int i = 0; i < 5; i++) {
-        printf("Lane %s queue size: %d\n", LANE_NAMES[i], laneQueues[i].count);
-    }
+   
     
     SDL_RenderPresent(renderer);
 }

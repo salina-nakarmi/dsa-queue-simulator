@@ -1,8 +1,7 @@
 # Traffic Queue Simulator
 
-A real-time traffic(self generated vehicles) intersection simulation that simulates traffic flow at a four-way intersection with traffic lights and multiple lanes. The simulation demonstrates vehicle movement, lane changing, and traffic light management for optimal traffic flow.
+A real-time traffic intersection simulation that simulates traffic flow at a four-way intersection with traffic lights and multiple lanes. The simulation demonstrates vehicle movement, lane changing, and traffic light management for optimal traffic flow. Vehicles are self-generated, and the simulation uses a queue-based system for traffic management.
 
-## DEMO
 ![Traffic Simulation Demo](./assets/images/traffic.gif)
 
 ## Features
@@ -28,35 +27,35 @@ A real-time traffic(self generated vehicles) intersection simulation that simula
 
 ## Logic
 
-# Lane Behavior
+### Lane Behavior
 - Lane A3, B3, C3, D3:
 
-Dequeue vehicles directly to their respective lanes (B1, C1, D1, A1) without needing traffic lights.
+   Dequeue vehicles directly to their respective lanes (B1, C1, D1, A1) without needing traffic lights.
 
 - Lane A2, B2, C2, D2:
 
-Follow traffic lights for dequeuing:
+  Follow traffic lights for dequeuing:
 
-A2 → C1, D1
+   A2 → C1, D1
 
-B2 → D1, A1
+   B2 → D1, A1
 
-C2 → B1, A1
+   C2 → B1, A1
 
-D2 → B1, C1
+   D2 → B1, C1
 
 - Lane 1:
 
-Acts as the incoming lane where vehicles are enqueued.
+   Acts as the incoming lane where vehicles are enqueued.
 
-# Priority Handling
+### Priority Handling
 - Lane A2 is the priority lane:
 
-When the vehicle count reaches 5, this lane is given high priority and is dequeued first.
+   When the vehicle count reaches 5, this lane is given high priority and is dequeued first.
 
-# Other lanes:
+### Other lanes:
 
-Vehicles are dequeued when the count exceeds 10, and dequeuing continues until the count drops to 5.
+   Vehicles are dequeued when the count exceeds 10, and dequeuing continues until the count drops to 5.
 
 
 ## Prerequisites:

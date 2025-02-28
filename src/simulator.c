@@ -49,7 +49,7 @@ SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 TTF_Font* font = NULL;
 VehicleQueue laneQueues[NUM_LANES];  // All lanes
-const char* LANE_NAMES[] = {"A1", "B1", "C1", "D1", "AL2", "BL2", "CL2", "DL2", "A3", "B3", "C3", "D3"};
+const char* LANE_NAMES[] = {"A1", "B1", "C1", "D1", "A2", "B2", "C2", "D2", "A3", "B3", "C3", "D3"};
 
 
 
@@ -128,39 +128,87 @@ typedef struct {
 
 // Mappings between generating lanes and receiving lanes
 const LaneMapping LANE_MAPPINGS[] = {
+    //for left turn
     {"A3", "B1"},  // A3 generates vehicles for B1
     {"B3", "C1"},  // B3 generates vehicles for C1
     {"C3", "D1"},  // C3 generates vehicles for D1
-    {"D3", "A1"}   // D3 generates vehicles for A1
+    {"D3", "A1"},  // D3 generates vehicles for A1
+    //for strainght
+    {"A2", "B1"},
+    {"B2", "D1"},
+    {"C2", "A1"},
+    {"D2", "B1"},
+    //FOR RIGHT TURN
+    {"A2", "D1"},
+    {"B2", "A1"},
+    {"C2", "B1"},
+    {"D2", "C1"},
+    
 };
 
 // Function definition
-char generateLane() {
-    char lanes[] = {'A', 'B', 'C', 'D'};
-    return lanes[rand() % 4];
-}
+
 
 // Add source lane position function
+// Get lane position for all lanes including A1, A2, B1, B2, C1, C2, D1, D2 and source lanes A3, B3, C3, D3
 void getSourceLanePosition(const char* lane, int* x, int* y, int vehicleIndex) {
     const int spacing = 30; // Space between vehicles
     const int junctionMargin = 150;
-    const int centerX = WINDOW_WIDTH/2;
-    const int centerY = WINDOW_HEIGHT/2;
-    
+    const int centerX = WINDOW_WIDTH / 2;
+    const int centerY = WINDOW_HEIGHT / 2;
+
+    // Source Lanes
     if (strcmp(lane, "A3") == 0) {
-        *x = centerX + ROAD_WIDTH/2 + LANE_WIDTH/2;
+        *x = centerX + ROAD_WIDTH/3.5 + LANE_WIDTH/3;
         *y = junctionMargin - vehicleIndex * spacing;
     } else if (strcmp(lane, "B3") == 0) {
         *x = WINDOW_WIDTH - junctionMargin + vehicleIndex * spacing;
-        *y = centerY + ROAD_WIDTH/2 + LANE_WIDTH/2;
+        *y = centerY + ROAD_WIDTH/3.5 + LANE_WIDTH/3;
     } else if (strcmp(lane, "C3") == 0) {
-        *x = centerX - ROAD_WIDTH/2 - LANE_WIDTH/2;
+        *x = centerX - ROAD_WIDTH/3.5 - LANE_WIDTH/3;
         *y = WINDOW_HEIGHT - junctionMargin + vehicleIndex * spacing;
     } else if (strcmp(lane, "D3") == 0) {
         *x = junctionMargin - vehicleIndex * spacing;
-        *y = centerY - ROAD_WIDTH/2 - LANE_WIDTH/2;
+        *y = centerY - ROAD_WIDTH/3.5 - LANE_WIDTH/3;
+    } 
+
+    // A Lanes (Top to Bottom)
+    else if (strcmp(lane, "A1") == 0) {
+        *x = centerX - ROAD_WIDTH/3 + LANE_WIDTH/3;
+        *y = junctionMargin - vehicleIndex * spacing;
+    } else if (strcmp(lane, "A2") == 0) {
+        *x = centerX + LANE_WIDTH/3.5;
+        *y = junctionMargin - vehicleIndex * spacing;
+    }
+
+    // B Lanes (Right to Left)
+    else if (strcmp(lane, "B1") == 0) {
+        *x = WINDOW_WIDTH - junctionMargin + vehicleIndex * spacing;
+        *y = centerY - ROAD_WIDTH/3 + LANE_WIDTH/3;
+    } else if (strcmp(lane, "B2") == 0) {
+        *x = WINDOW_WIDTH - junctionMargin + vehicleIndex * spacing;
+        *y = centerY + LANE_WIDTH/3.5;
+    }
+
+    // C Lanes (Bottom to Top)
+    else if (strcmp(lane, "C1") == 0) {
+        *x = centerX + ROAD_WIDTH/3 - LANE_WIDTH/3;
+        *y = WINDOW_HEIGHT - junctionMargin + vehicleIndex * spacing;
+    } else if (strcmp(lane, "C2") == 0) {
+        *x = centerX - LANE_WIDTH/3.5;
+        *y = WINDOW_HEIGHT - junctionMargin + vehicleIndex * spacing;
+    }
+
+    // D Lanes (Left to Right)
+    else if (strcmp(lane, "D1") == 0) {
+        *x = junctionMargin - vehicleIndex * spacing;
+        *y = centerY + ROAD_WIDTH/3 - LANE_WIDTH/3;
+    } else if (strcmp(lane, "D2") == 0) {
+        *x = junctionMargin - vehicleIndex * spacing;
+        *y = centerY - LANE_WIDTH/3.5;
     }
 }
+
 
 void drawRoads(void) {
     // Draw background
